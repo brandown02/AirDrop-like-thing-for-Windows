@@ -4,3 +4,6 @@ Uses an iPhone shortcut to transfer or receive files from a shared folder on Win
 Open PowerShell as admin and paste this:
 ```powershell
 irm is.gd/AirDrop_Thing | iex
+
+
+<img src="demo.gif" width="100%">
