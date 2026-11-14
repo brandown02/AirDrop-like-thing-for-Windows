@@ -16,7 +16,7 @@ $UrlAtajoQR = "https://www.icloud.com/shortcuts/75ccc6f6a28240fdacc029cb1303cbcd
 
 function Set-QrCodeFromUrl ($url, $brush) {
     try {
-        $apiUrl = "https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=1&data=" + [uri]::EscapeDataString($url)
+        $apiUrl = "https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=3&data=" + [uri]::EscapeDataString($url)
         $bmp = New-Object System.Windows.Media.Imaging.BitmapImage
         $bmp.BeginInit()
         $bmp.UriSource = New-Object System.Uri($apiUrl)
@@ -98,6 +98,9 @@ if (-not ("Win32" -as [type])) {
         $m5 = $typeBuilder.DefinePInvokeMethod("SystemParametersInfo", "user32.dll", [System.Reflection.MethodAttributes]"Public,Static,PinvokeImpl", [System.Reflection.CallingConventions]::Standard, [bool], @([uint32], [uint32], [IntPtr], [uint32]), [System.Runtime.InteropServices.CallingConvention]::Winapi, [System.Runtime.InteropServices.CharSet]::Ansi)
         $m5.SetImplementationFlags([System.Reflection.MethodImplAttributes]::PreserveSig)
 
+        $m6 = $typeBuilder.DefinePInvokeMethod("SetForegroundWindow", "user32.dll", [System.Reflection.MethodAttributes]"Public,Static,PinvokeImpl", [System.Reflection.CallingConventions]::Standard, [bool], @([IntPtr]), [System.Runtime.InteropServices.CallingConvention]::Winapi, [System.Runtime.InteropServices.CharSet]::Ansi)
+        $m6.SetImplementationFlags([System.Reflection.MethodImplAttributes]::PreserveSig)
+
         [void]$typeBuilder.CreateType()
     } catch {}
 }
@@ -121,33 +124,46 @@ using System.Windows.Forms;
 
 public class ModernMenuRenderer : ToolStripProfessionalRenderer {
     public ModernMenuRenderer() { this.RoundedEdges = false; }
-    protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e) {
-        Rectangle textRect = new Rectangle(0, 0, e.Item.Width, e.Item.Height);
-        TextRenderer.DrawText(e.Graphics, e.Text.Trim(), e.Item.Font, textRect, e.Item.Enabled ? Color.Black : Color.Gray, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
-    }
     protected override void OnRenderToolStripBackground(ToolStripRenderEventArgs e) {
-        e.Graphics.Clear(Color.FromArgb(248, 248, 248));
+        e.Graphics.Clear(Color.FromArgb(245, 245, 247));
+        using (Pen pen = new Pen(Color.FromArgb(28, 0, 0, 0))) {
+            int y = e.ToolStrip.Height / 2;
+            e.Graphics.DrawLine(pen, 12, y, e.ToolStrip.Width - 13, y);
+        }
     }
     protected override void OnRenderToolStripBorder(ToolStripRenderEventArgs e) {
-        using (Pen pen = new Pen(Color.FromArgb(215, 215, 215))) {
-            Rectangle rect = new Rectangle(0, 0, e.AffectedBounds.Width - 1, e.AffectedBounds.Height - 1);
-            e.Graphics.DrawRectangle(pen, rect);
-        }
     }
     protected override void OnRenderMenuItemBackground(ToolStripItemRenderEventArgs e) {
         if (e.Item.Selected) {
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            Rectangle rect = new Rectangle(4, 2, e.Item.Width - 8, e.Item.Height - 4);
-            using (GraphicsPath path = GetRoundedRect(rect, 4)) {
-                using (SolidBrush brush = new SolidBrush(Color.FromArgb(235, 235, 235))) { e.Graphics.FillPath(brush, path); }
+            e.Graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
+            RectangleF rect = new RectangleF(3f, 1f, e.Item.Width - 6f, e.Item.Height - 2f);
+            using (GraphicsPath path = GetRoundedRect(rect, 5f)) {
+                using (SolidBrush brush = new SolidBrush(Color.FromArgb(10, 122, 255))) {
+                    e.Graphics.FillPath(brush, path);
+                }
             }
         }
     }
-    private GraphicsPath GetRoundedRect(Rectangle bounds, int radius) {
+    protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e) {
+        Rectangle textRect = new Rectangle(0, 0, e.Item.Width, e.Item.Height);
+        Color textColor = !e.Item.Enabled ? Color.Gray : (e.Item.Selected ? Color.White : Color.FromArgb(29, 29, 31));
+        TextRenderer.DrawText(e.Graphics, e.Text.Trim(), e.Item.Font, textRect, textColor, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
+    }
+    private GraphicsPath GetRoundedRect(RectangleF bounds, float radius) {
         GraphicsPath path = new GraphicsPath();
-        if (radius <= 0) { path.AddRectangle(bounds); return path; }
-        int diameter = radius * 2; Size size = new Size(diameter, diameter); Rectangle arc = new Rectangle(bounds.Location, size);
-        path.AddArc(arc, 180, 90); arc.X = bounds.Right - diameter; path.AddArc(arc, 270, 90); arc.Y = bounds.Bottom - diameter; path.AddArc(arc, 0, 90); arc.X = bounds.Left; path.AddArc(arc, 90, 90); path.CloseFigure(); return path;
+        if (radius <= 0f) { path.AddRectangle(bounds); return path; }
+        float diameter = radius * 2f;
+        RectangleF arc = new RectangleF(bounds.Location, new SizeF(diameter, diameter));
+        path.AddArc(arc, 180f, 90f);
+        arc.X = bounds.Right - diameter;
+        path.AddArc(arc, 270f, 90f);
+        arc.Y = bounds.Bottom - diameter;
+        path.AddArc(arc, 0f, 90f);
+        arc.X = bounds.Left;
+        path.AddArc(arc, 90f, 90f);
+        path.CloseFigure();
+        return path;
     }
 }
 "@
@@ -216,15 +232,19 @@ public class ModernMenuRenderer : ToolStripProfessionalRenderer {
 
             $menu = New-Object System.Windows.Forms.ContextMenuStrip
             $menu.ShowImageMargin = $false
+            $menu.ShowCheckMargin = $false
+            $menu.AutoSize = $true
             $menu.Renderer = [ModernMenuRenderer]::new()
-            $menu.Padding = New-Object System.Windows.Forms.Padding(2, 4, 2, 4) 
-            $menu.Font = New-Object System.Drawing.Font("Segoe UI", 10)
+            $menu.Padding = New-Object System.Windows.Forms.Padding(2, 4, 2, 4)
+            $menu.Font = New-Object System.Drawing.Font("Segoe UI", 9.5)
             
-            $itemAbrir = $menu.Items.Add("        Abrir        ")
+            $itemAbrir = $menu.Items.Add("Abrir AirDrop")
+            $itemAbrir.Margin = New-Object System.Windows.Forms.Padding(0, 0, 0, 3)
             $itemAbrir.Padding = New-Object System.Windows.Forms.Padding(0, 4, 0, 4)
             $itemAbrir.Add_Click({ Start-Process wscript.exe -ArgumentList "`"$vbsGuiPath`"" })
-            
-            $itemSalir = $menu.Items.Add("        Salir        ")
+
+            $itemSalir = $menu.Items.Add("Salir")
+            $itemSalir.Margin = New-Object System.Windows.Forms.Padding(0, 3, 0, 0)
             $itemSalir.Padding = New-Object System.Windows.Forms.Padding(0, 4, 0, 4)
             $itemSalir.Add_Click({
                 $GuiProcs = Get-CimInstance Win32_Process -Filter "Name='powershell.exe' OR Name='pwsh.exe'" | Where-Object { $_.CommandLine -match 'AirDrop.ps1' -and $_.CommandLine -notmatch '-MonitorBackground' -and $_.ProcessId -ne $PID }
@@ -315,31 +335,38 @@ $d_FadeFilaPC = "0:0:0.3"
         UseLayoutRounding="True" SnapsToDevicePixels="True" TextOptions.TextFormattingMode="Ideal" TextOptions.TextRenderingMode="ClearType" TextOptions.TextHintingMode="Fixed" RenderOptions.ClearTypeHint="Enabled" RenderOptions.BitmapScalingMode="HighQuality">
 
     <Window.Resources>
-<!-- ANIMACIONES DE LA VENTANA PRINCIPAL -->
-        <Storyboard x:Key="AnimacionAbrir">
+        <Style TargetType="TextBlock">
+            <Setter Property="TextOptions.TextHintingMode" Value="Fixed"/>
+        </Style>
+        <Style TargetType="TextBox">
+            <Setter Property="TextOptions.TextHintingMode" Value="Fixed"/>
+        </Style>
+
+<!-- ANIMACIONES DE LA VENTANA PRINCIPAL (A 144 FPS) -->
+        <Storyboard x:Key="AnimacionAbrir" Timeline.DesiredFrameRate="144">
             <DoubleAnimation Storyboard.TargetName="BordePrincipal" Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.22"/>
             <DoubleAnimation Storyboard.TargetName="WindowTranslate" Storyboard.TargetProperty="Y" From="0" To="0" Duration="0:0:0.26"/>
             <DoubleAnimation Storyboard.TargetName="WindowScale" Storyboard.TargetProperty="ScaleX" From="0.88" To="1" Duration="0:0:0.26"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation>
             <DoubleAnimation Storyboard.TargetName="WindowScale" Storyboard.TargetProperty="ScaleY" From="0.88" To="1" Duration="0:0:0.26"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation>
         </Storyboard>
-        <Storyboard x:Key="AnimacionCerrar">
+        <Storyboard x:Key="AnimacionCerrar" Timeline.DesiredFrameRate="144">
             <DoubleAnimation Storyboard.TargetName="BordePrincipal" Storyboard.TargetProperty="Opacity" From="1" To="0" Duration="0:0:0.15"/>
             <DoubleAnimation Storyboard.TargetName="WindowScale" Storyboard.TargetProperty="ScaleX" From="1" To="0.92" Duration="0:0:0.15"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseIn"/></DoubleAnimation.EasingFunction></DoubleAnimation>
             <DoubleAnimation Storyboard.TargetName="WindowScale" Storyboard.TargetProperty="ScaleY" From="1" To="0.92" Duration="0:0:0.15"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseIn"/></DoubleAnimation.EasingFunction></DoubleAnimation>
         </Storyboard>
-        <Storyboard x:Key="AnimacionMinimizar">
+        <Storyboard x:Key="AnimacionMinimizar" Timeline.DesiredFrameRate="144">
             <DoubleAnimation Storyboard.TargetName="BordePrincipal" Storyboard.TargetProperty="Opacity" From="1" To="0" Duration="0:0:0.15"/>
             <DoubleAnimation Storyboard.TargetName="WindowTranslate" Storyboard.TargetProperty="Y" From="0" To="100" Duration="0:0:0.15"><DoubleAnimation.EasingFunction><QuadraticEase EasingMode="EaseIn"/></DoubleAnimation.EasingFunction></DoubleAnimation>
             <DoubleAnimation Storyboard.TargetName="WindowScale" Storyboard.TargetProperty="ScaleX" From="1" To="0.6" Duration="0:0:0.15"><DoubleAnimation.EasingFunction><QuadraticEase EasingMode="EaseIn"/></DoubleAnimation.EasingFunction></DoubleAnimation>
             <DoubleAnimation Storyboard.TargetName="WindowScale" Storyboard.TargetProperty="ScaleY" From="1" To="0.6" Duration="0:0:0.15"><DoubleAnimation.EasingFunction><QuadraticEase EasingMode="EaseIn"/></DoubleAnimation.EasingFunction></DoubleAnimation>
         </Storyboard>
-        <Storyboard x:Key="AnimacionRestaurar">
+        <Storyboard x:Key="AnimacionRestaurar" Timeline.DesiredFrameRate="144">
             <DoubleAnimation Storyboard.TargetName="BordePrincipal" Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.15"/>
             <DoubleAnimation Storyboard.TargetName="WindowTranslate" Storyboard.TargetProperty="Y" From="100" To="0" Duration="0:0:0.15"><DoubleAnimation.EasingFunction><QuadraticEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation>
             <DoubleAnimation Storyboard.TargetName="WindowScale" Storyboard.TargetProperty="ScaleX" From="0.6" To="1" Duration="0:0:0.15"><DoubleAnimation.EasingFunction><QuadraticEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation>
             <DoubleAnimation Storyboard.TargetName="WindowScale" Storyboard.TargetProperty="ScaleY" From="0.6" To="1" Duration="0:0:0.15"><DoubleAnimation.EasingFunction><QuadraticEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation>
         </Storyboard>
-        <Storyboard x:Key="AnimacionExito">
+        <Storyboard x:Key="AnimacionExito" Timeline.DesiredFrameRate="144">
             <DoubleAnimation Storyboard.TargetName="TxtRuta" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.25"/>
             <DoubleAnimation Storyboard.TargetName="TxtSuccess" Storyboard.TargetProperty="Opacity" To="1" BeginTime="0:0:0.15" Duration="0:0:0.25"/>
             <DoubleAnimation Storyboard.TargetName="TxtSuccess" Storyboard.TargetProperty="Opacity" To="0" BeginTime="0:0:2.0" Duration="0:0:0.25"/>
@@ -824,55 +851,49 @@ $d_FadeFilaPC = "0:0:0.3"
             </Setter>
         </Style>
 
-        <!-- CHECKBOX MACOS CON TILDE MATEMÁTICAMENTE CENTRADA -->
+        <!-- SWITCH MACOS (Relleno 100% sólido sin filtración de bordes y a 144 FPS) -->
         <Style TargetType="CheckBox" x:Key="MacCheckbox">
             <Setter Property="Foreground" Value="#1D1D1F"/>
             <Setter Property="FontFamily" Value="Segoe UI Variable Text, Segoe UI"/>
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="CheckBox">
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Background="Transparent">
-                            <Grid Width="15" Height="15" RenderTransformOrigin="0.5,0.5">
-                                <Grid.RenderTransform><ScaleTransform x:Name="ChkScale" ScaleX="1" ScaleY="1"/></Grid.RenderTransform>
-                                <Border x:Name="CheckBorder" CornerRadius="4" Background="#FFFFFF" BorderBrush="#B8B8BF" BorderThickness="1">
-                                    <Border.Effect>
-                                        <DropShadowEffect Color="Black" BlurRadius="1.5" ShadowDepth="0.5" Opacity="0.08" Direction="270"/>
-                                    </Border.Effect>
-                                    <Canvas Width="13" Height="13" HorizontalAlignment="Center" VerticalAlignment="Center" SnapsToDevicePixels="False">
-                                        <Path x:Name="CheckMark" Data="M 2.5,6.8 L 5.2,9.5 L 10.5,3.5" Stroke="White" StrokeThickness="2" Visibility="Hidden" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
-                                    </Canvas>
+                        <Grid Background="Transparent" VerticalAlignment="Center">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <ContentPresenter Grid.Column="0" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                            <Grid Grid.Column="1" Width="34" Height="20" VerticalAlignment="Center" SnapsToDevicePixels="False" UseLayoutRounding="False">
+                                <Border x:Name="SwitchTrack" CornerRadius="10" Background="#D2D2D7" BorderThickness="0"/>
+                                <Border x:Name="SwitchKnob" Width="16" Height="16" CornerRadius="8" Background="#FFFFFF" BorderBrush="#18000000" BorderThickness="0.8" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="2,0,0,0" RenderTransformOrigin="0.5,0.5">
+                                    <Border.RenderTransform>
+                                        <TranslateTransform x:Name="KnobTranslate" X="0"/>
+                                    </Border.RenderTransform>
                                 </Border>
                             </Grid>
-                            <ContentPresenter Margin="7,0,0,0" VerticalAlignment="Center"/>
-                        </StackPanel>
+                        </Grid>
                         <ControlTemplate.Triggers>
-                            <Trigger Property="IsPressed" Value="True">
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="SwitchTrack" Property="Background" Value="#007AFF"/>
+                                <Setter TargetName="SwitchKnob" Property="BorderBrush" Value="#00000000"/>
                                 <Trigger.EnterActions>
-                                    <BeginStoryboard><Storyboard>
-                                        <DoubleAnimation Storyboard.TargetName="ChkScale" Storyboard.TargetProperty="ScaleX" To="0.9" Duration="0:0:0.06"/>
-                                        <DoubleAnimation Storyboard.TargetName="ChkScale" Storyboard.TargetProperty="ScaleY" To="0.9" Duration="0:0:0.06"/>
+                                    <BeginStoryboard><Storyboard Timeline.DesiredFrameRate="144">
+                                        <DoubleAnimation Storyboard.TargetName="KnobTranslate" Storyboard.TargetProperty="X" To="14" Duration="0:0:0.15">
+                                            <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
                                     </Storyboard></BeginStoryboard>
                                 </Trigger.EnterActions>
                                 <Trigger.ExitActions>
-                                    <BeginStoryboard><Storyboard>
-                                        <DoubleAnimation Storyboard.TargetName="ChkScale" Storyboard.TargetProperty="ScaleX" To="1" Duration="0:0:0.1"/>
-                                        <DoubleAnimation Storyboard.TargetName="ChkScale" Storyboard.TargetProperty="ScaleY" To="1" Duration="0:0:0.1"/>
+                                    <BeginStoryboard><Storyboard Timeline.DesiredFrameRate="144">
+                                        <DoubleAnimation Storyboard.TargetName="KnobTranslate" Storyboard.TargetProperty="X" To="0" Duration="0:0:0.15">
+                                            <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
                                     </Storyboard></BeginStoryboard>
                                 </Trigger.ExitActions>
-                            </Trigger>
-                            <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="CheckBorder" Property="Background">
-                                    <Setter.Value>
-                                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                            <GradientStop Color="#FF1E8FFF" Offset="0.0"/>
-                                            <GradientStop Color="#FF007AFF" Offset="1.0"/>
-                                        </LinearGradientBrush>
-                                    </Setter.Value>
-                                </Setter>
-                                <Setter TargetName="CheckBorder" Property="BorderBrush" Value="#0068D6"/>
-                                <Setter TargetName="CheckMark" Property="Visibility" Value="Visible"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -906,7 +927,7 @@ $d_FadeFilaPC = "0:0:0.3"
     </Window.Triggers>
 
     <!-- CONTENEDOR PRINCIPAL -->
-    <Grid x:Name="BordePrincipal" Opacity="0" Margin="18" RenderTransformOrigin="0.5,0.5" Width="550" VerticalAlignment="Top">
+    <Grid x:Name="BordePrincipal" Opacity="0" Margin="26,20,26,32" RenderTransformOrigin="0.5,0.5" Width="550" VerticalAlignment="Top">
         <Grid.RenderTransform>
             <TransformGroup>
                 <ScaleTransform x:Name="WindowScale" ScaleX="0.88" ScaleY="0.88"/>
@@ -915,66 +936,76 @@ $d_FadeFilaPC = "0:0:0.3"
         </Grid.RenderTransform>
 
         <!-- Capa 1: Sombra ambiental macOS -->
-        <Border CornerRadius="14" Background="#FFF5F5F7">
+        <Border CornerRadius="12" Background="#FFF5F5F7">
             <Border.Effect>
                 <DropShadowEffect Color="Black" Direction="270" ShadowDepth="6" BlurRadius="22" Opacity="0.22"/>
             </Border.Effect>
         </Border>
 
         <!-- Capa 2: Ventana con Bisel Interno de Cristal -->
-        <Border CornerRadius="14" BorderBrush="#28000000" BorderThickness="1" ClipToBounds="True">
-            <Border.Background>
-                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                    <GradientStop Color="#FFF6F6F8" Offset="0.0"/>
-                    <GradientStop Color="#FFECECEF" Offset="1.0"/>
-                </LinearGradientBrush>
-            </Border.Background>
-            
-            <Border CornerRadius="13" BorderBrush="#CCFFFFFF" BorderThickness="1" ClipToBounds="True">
+        <Border CornerRadius="12" Background="#FFF5F5F7" BorderBrush="#28000000" BorderThickness="1" ClipToBounds="True">
+            <Border CornerRadius="11" BorderBrush="#CCFFFFFF" BorderThickness="1" ClipToBounds="True">
                 <Grid>
-                    <!-- SEMÁFORO MACOS (Hover agrupado, centrado exacto y mismo grosor en negrita) -->
-                    <StackPanel x:Name="PanelSemaforo" Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="14,14,0,0" Panel.ZIndex="100" Background="Transparent">
-                        <Button x:Name="BtnCerrarVentana" Width="14" Height="14" Margin="0,0,8,0" Cursor="Hand" BorderThickness="0" Background="Transparent">
+                    <!-- SEMÁFORO MACOS (Centrado sub-píxel exacto y mismo grosor en negrita) -->
+                    <StackPanel x:Name="PanelSemaforo" Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="14,14,0,0" Panel.ZIndex="100" Background="Transparent" UseLayoutRounding="False" SnapsToDevicePixels="False">
+                        <Button x:Name="BtnCerrarVentana" Width="13" Height="13" Margin="0,0,8,0" Cursor="Hand" BorderThickness="0" Background="Transparent">
                             <Button.Template>
                                 <ControlTemplate TargetType="Button">
-                                    <Border CornerRadius="7" Background="#FF5F57" BorderBrush="#E0443E" BorderThickness="1">
-                                        <Grid x:Name="iconCruz" Width="12" Height="12" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Hidden" SnapsToDevicePixels="False">
-                                            <Rectangle Width="7.5" Height="1.6" RadiusX="0.8" RadiusY="0.8" Fill="#4D0000" HorizontalAlignment="Center" VerticalAlignment="Center" RenderTransformOrigin="0.5,0.5">
-                                                <Rectangle.RenderTransform><RotateTransform Angle="45"/></Rectangle.RenderTransform>
-                                            </Rectangle>
-                                            <Rectangle Width="7.5" Height="1.6" RadiusX="0.8" RadiusY="0.8" Fill="#4D0000" HorizontalAlignment="Center" VerticalAlignment="Center" RenderTransformOrigin="0.5,0.5">
-                                                <Rectangle.RenderTransform><RotateTransform Angle="-45"/></Rectangle.RenderTransform>
-                                            </Rectangle>
-                                        </Grid>
-                                    </Border>
+                                    <Grid Width="13" Height="13">
+                                        <Border x:Name="circleRojo" CornerRadius="6.5" Background="#FF5F57" BorderBrush="#E0443E" BorderThickness="1"/>
+                                        <Canvas x:Name="iconCruz" Width="13" Height="13" Visibility="Hidden" IsHitTestVisible="False">
+                                            <Path Data="M 4.1,4.1 L 8.9,8.9 M 8.9,4.1 L 4.1,8.9" Stroke="#4D0000" StrokeThickness="1.85" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                                        </Canvas>
+                                    </Grid>
                                     <ControlTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding IsActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="False">
+                                            <Setter TargetName="circleRojo" Property="Background" Value="#DCDCE0"/>
+                                            <Setter TargetName="circleRojo" Property="BorderBrush" Value="#CCCCD0"/>
+                                        </DataTrigger>
                                         <DataTrigger Binding="{Binding IsMouseOver, ElementName=PanelSemaforo}" Value="True">
+                                            <Setter TargetName="circleRojo" Property="Background" Value="#FF5F57"/>
+                                            <Setter TargetName="circleRojo" Property="BorderBrush" Value="#E0443E"/>
                                             <Setter TargetName="iconCruz" Property="Visibility" Value="Visible"/>
                                         </DataTrigger>
+                                        <Trigger Property="IsPressed" Value="True">
+                                            <Setter TargetName="circleRojo" Property="Background" Value="#BF4942"/>
+                                            <Setter TargetName="circleRojo" Property="BorderBrush" Value="#A63A34"/>
+                                        </Trigger>
                                     </ControlTemplate.Triggers>
                                 </ControlTemplate>
                             </Button.Template>
                         </Button>
-                        <Button x:Name="BtnMinimizarVentana" Width="14" Height="14" Margin="0,0,8,0" Cursor="Hand" BorderThickness="0" Background="Transparent">
+                        <Button x:Name="BtnMinimizarVentana" Width="13" Height="13" Margin="0,0,8,0" Cursor="Hand" BorderThickness="0" Background="Transparent">
                             <Button.Template>
                                 <ControlTemplate TargetType="Button">
-                                    <Border CornerRadius="7" Background="#FEBC2E" BorderBrush="#D89E24" BorderThickness="1">
-                                        <Grid x:Name="iconGuion" Width="12" Height="12" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Hidden" SnapsToDevicePixels="False">
-                                            <Rectangle Width="7.5" Height="1.6" RadiusX="0.8" RadiusY="0.8" Fill="#5C3D00" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                        </Grid>
-                                    </Border>
+                                    <Grid Width="13" Height="13">
+                                        <Border x:Name="circleAmarillo" CornerRadius="6.5" Background="#FEBC2E" BorderBrush="#D89E24" BorderThickness="1"/>
+                                        <Canvas x:Name="iconGuion" Width="13" Height="13" Visibility="Hidden" IsHitTestVisible="False">
+                                            <Path Data="M 3.7,6.5 L 9.3,6.5" Stroke="#5C3D00" StrokeThickness="1.85" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                                        </Canvas>
+                                    </Grid>
                                     <ControlTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding IsActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="False">
+                                            <Setter TargetName="circleAmarillo" Property="Background" Value="#DCDCE0"/>
+                                            <Setter TargetName="circleAmarillo" Property="BorderBrush" Value="#CCCCD0"/>
+                                        </DataTrigger>
                                         <DataTrigger Binding="{Binding IsMouseOver, ElementName=PanelSemaforo}" Value="True">
+                                            <Setter TargetName="circleAmarillo" Property="Background" Value="#FEBC2E"/>
+                                            <Setter TargetName="circleAmarillo" Property="BorderBrush" Value="#D89E24"/>
                                             <Setter TargetName="iconGuion" Property="Visibility" Value="Visible"/>
                                         </DataTrigger>
+                                        <Trigger Property="IsPressed" Value="True">
+                                            <Setter TargetName="circleAmarillo" Property="Background" Value="#BF8E22"/>
+                                            <Setter TargetName="circleAmarillo" Property="BorderBrush" Value="#A3771B"/>
+                                        </Trigger>
                                     </ControlTemplate.Triggers>
                                 </ControlTemplate>
                             </Button.Template>
                         </Button>
-                        <Button Width="14" Height="14" IsEnabled="False" BorderThickness="0" Background="Transparent">
+                        <Button Width="13" Height="13" IsEnabled="False" BorderThickness="0" Background="Transparent">
                             <Button.Template>
                                 <ControlTemplate TargetType="Button">
-                                    <Border CornerRadius="7" Background="#DCDCE0" BorderBrush="#CCCCD0" BorderThickness="1"/>
+                                    <Border CornerRadius="6.5" Background="#DCDCE0" BorderBrush="#CCCCD0" BorderThickness="1"/>
                                 </ControlTemplate>
                             </Button.Template>
                         </Button>
@@ -1057,8 +1088,8 @@ $d_FadeFilaPC = "0:0:0.3"
                                 </Grid.RenderTransform>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="28"/>
-                                    <RowDefinition Height="26"/>
-                                    <RowDefinition Height="28"/>
+                                    <RowDefinition Height="18"/>
+                                    <RowDefinition Height="36"/>
                                 </Grid.RowDefinitions>
 
                                 <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Center">
@@ -1074,10 +1105,19 @@ $d_FadeFilaPC = "0:0:0.3"
                                     <Button x:Name="BtnExaminar" Content="&#x22EF;" Style="{StaticResource BotonMacSecundario}" Width="36" Height="28" Padding="0,0,0,1" Margin="8,0,0,0" FontWeight="SemiBold" FontSize="14"/>
                                 </StackPanel>
                                 
-                                <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                    <CheckBox x:Name="ChkWindows" Style="{StaticResource MacCheckbox}" Content="Iniciar con Windows" Margin="0,0,32,0"/>
-                                    <CheckBox x:Name="ChkCompartida" Style="{StaticResource MacCheckbox}" Content="Carpeta compartida"/>
-                                </StackPanel>
+                                <!-- Tarjeta agrupada macOS para los Switches (mismo ancho exacto de 424px que la fila superior) -->
+                                <Border Grid.Row="2" Width="424" Height="36" CornerRadius="8" Background="#99FFFFFF" BorderBrush="#18000000" BorderThickness="1" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="1"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <CheckBox x:Name="ChkWindows" Grid.Column="0" Style="{StaticResource MacCheckbox}" Content="Iniciar con Windows" Margin="12,0,12,0"/>
+                                        <Rectangle Grid.Column="1" Width="1" Fill="#14000000" Margin="0,6"/>
+                                        <CheckBox x:Name="ChkCompartida" Grid.Column="2" Style="{StaticResource MacCheckbox}" Content="Carpeta compartida" Margin="12,0,12,0"/>
+                                    </Grid>
+                                </Border>
                             </Grid>
 
                             <Grid x:Name="BodyCredenciales" Opacity="0" Visibility="Collapsed" IsHitTestVisible="False" VerticalAlignment="Center" RenderTransformOrigin="0.5,0.5">
@@ -1093,26 +1133,33 @@ $d_FadeFilaPC = "0:0:0.3"
                                     <RowDefinition Height="28"/>
                                 </Grid.RowDefinitions>
 
-                                <Border Grid.Row="0" Style="{StaticResource MacInputBorder}" Width="260" Height="28" HorizontalAlignment="Center">
-                                    <TextBox x:Name="TxtUsuario" Text="Escribir usuario..." FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="13" Foreground="#86868B" BorderThickness="0" Background="Transparent" VerticalAlignment="Center" Padding="8,0"/>
-                                </Border>
+                                <Grid Grid.Row="0" Width="260" Height="28" HorizontalAlignment="Center">
+                                    <Border Style="{StaticResource MacInputBorder}" Width="260" Height="28">
+                                        <TextBox x:Name="TxtUsuario" Text="" CaretBrush="Transparent" FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="13" Foreground="#1D1D1F" BorderThickness="0" Background="Transparent" TextAlignment="Left" VerticalAlignment="Center" Margin="0,-1.5,0,0" Padding="8,0"/>
+                                    </Border>
+                                    <TextBlock x:Name="PlaceholderUsuario" Text="Escribir usuario..." FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="13" Foreground="#86868B" TextAlignment="Left" VerticalAlignment="Center" Margin="0,-1.5,0,0" Padding="10,0" IsHitTestVisible="False"/>
+                                </Grid>
 
-                                <Border Grid.Row="2" Style="{StaticResource MacInputBorder}" Width="260" Height="28" HorizontalAlignment="Center">
-                                    <TextBox x:Name="TxtPassword" Text="Escribir contrase&#x00F1;a..." FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="13" Foreground="#86868B" BorderThickness="0" Background="Transparent" VerticalAlignment="Center" Padding="8,0"/>
-                                </Border>
+                                <Grid Grid.Row="2" Width="260" Height="28" HorizontalAlignment="Center">
+                                    <Border Style="{StaticResource MacInputBorder}" Width="260" Height="28">
+                                        <TextBox x:Name="TxtPassword" Text="" CaretBrush="Transparent" FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="13" Foreground="#1D1D1F" BorderThickness="0" Background="Transparent" TextAlignment="Left" VerticalAlignment="Center" Margin="0,-1.5,0,0" Padding="8,0"/>
+                                    </Border>
+                                    <TextBlock x:Name="PlaceholderPassword" Text="Escribir contrase&#x00F1;a..." FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="13" Foreground="#86868B" TextAlignment="Left" VerticalAlignment="Center" Margin="0,-1.5,0,0" Padding="10,0" IsHitTestVisible="False"/>
+                                </Grid>
                             </Grid>
 
-<Grid IsHitTestVisible="False" Opacity="0" RenderTransformOrigin="0.5,0.5" VerticalAlignment="Center" Visibility="Collapsed" x:Name="BodyDesinstalar">
+                            <Grid IsHitTestVisible="False" Opacity="0" RenderTransformOrigin="0.5,0.5" VerticalAlignment="Center" Visibility="Collapsed" x:Name="BodyDesinstalar">
                                 <Grid.RenderTransform>
                                     <TransformGroup>
                                         <ScaleTransform ScaleX="1" ScaleY="1"/>
                                         <TranslateTransform X="0" Y="0"/>
                                     </TransformGroup>
                                 </Grid.RenderTransform>
-                                <TextBlock FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="14" Foreground="#1D1D1F" LineHeight="20" LineStackingStrategy="BlockLineHeight" Text="Se desinstalar&#x00E1; AirDrop y todos sus archivos. La carpeta dejar&#x00E1; de compartirse, pero sus datos no se modificar&#x00E1;n." TextAlignment="Center" TextWrapping="Wrap" Width="410"/>
+                                <Border Background="#FFF5F5F7" RenderOptions.ClearTypeHint="Enabled" HorizontalAlignment="Center">
+                                    <TextBlock FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="14" Foreground="#1D1D1F" LineHeight="20" LineStackingStrategy="BlockLineHeight" Text="Se desinstalar&#x00E1; AirDrop y todos sus archivos. La carpeta dejar&#x00E1; de compartirse, pero sus datos no se modificar&#x00E1;n." TextAlignment="Center" TextWrapping="Wrap" Width="410"/>
+                                </Border>
                             </Grid>
 
-                            <!-- PASO 2 YA INTEGRADO ACÁ: Mensaje de confirmación de red -->
                             <Grid IsHitTestVisible="False" Opacity="0" RenderTransformOrigin="0.5,0.5" VerticalAlignment="Center" Visibility="Collapsed" x:Name="BodyConfirmarRed">
                                 <Grid.RenderTransform>
                                     <TransformGroup>
@@ -1120,12 +1167,14 @@ $d_FadeFilaPC = "0:0:0.3"
                                         <TranslateTransform X="0" Y="0"/>
                                     </TransformGroup>
                                 </Grid.RenderTransform>
-                                <StackPanel VerticalAlignment="Center" Width="420">
-                                    <TextBlock FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="14" Foreground="#1D1D1F" LineHeight="20" LineStackingStrategy="BlockLineHeight" Text="&#x00BF;Confi&#x00E1;s en la red conectada actualmente? El perfil de red pasar&#x00E1; a ser privado para compartir la carpeta." TextAlignment="Center" TextWrapping="Wrap"/>
-                                    <TextBlock FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="14" Foreground="#FF3B30" LineHeight="20" LineStackingStrategy="BlockLineHeight" Margin="0,4,0,0" Text="No aceptes esto en redes Wi-Fi p&#x00FA;blicas." TextAlignment="Center" TextWrapping="Wrap"/>
-                                </StackPanel>
+                                <Border Background="#FFF5F5F7" RenderOptions.ClearTypeHint="Enabled" HorizontalAlignment="Center">
+                                    <StackPanel VerticalAlignment="Center" Width="420">
+                                        <TextBlock FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="14" Foreground="#1D1D1F" LineHeight="20" LineStackingStrategy="BlockLineHeight" Text="&#x00BF;Confi&#x00E1;s en la red conectada actualmente?" TextAlignment="Center" TextWrapping="Wrap"/>
+                                        <TextBlock FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="14" Foreground="#1D1D1F" LineHeight="20" LineStackingStrategy="BlockLineHeight" Margin="0,4,0,0" Text="El perfil de red pasar&#x00E1; a ser privado. No actives esta opci&#x00F3;n en redes Wi-Fi p&#x00FA;blicas." TextAlignment="Center" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                </Border>
                             </Grid>
-                          </Grid>
+                        </Grid>
 
                         <Grid Grid.Row="6" Margin="0,-18,0,-18" x:Name="ContainerBotones">
                             <StackPanel HorizontalAlignment="Center" IsHitTestVisible="False" Opacity="0" Orientation="Horizontal" RenderTransformOrigin="0.5,0.5" VerticalAlignment="Center" Visibility="Collapsed" x:Name="BotonesInstalar">
@@ -1145,9 +1194,8 @@ $d_FadeFilaPC = "0:0:0.3"
                                         <TranslateTransform X="0" Y="0"/>
                                     </TransformGroup>
                                 </StackPanel.RenderTransform>
-                                <Button Content="Desinstalar" Foreground="#FF3B30" Style="{StaticResource BotonMacSecundario}" Width="105" x:Name="BtnDesinstalar"/>
-                                <Button Content="Vincular iPhone" Style="{StaticResource BotonMacSecundario}" Width="130" x:Name="BtnAtajo"/>
-                                <Button Content="Crear credenciales" Style="{StaticResource BotonMacPrimario}" Width="140" x:Name="BtnCredenciales"/>
+                                <Button Content="Vincular iPhone" Margin="0,0,7,0" Style="{StaticResource BotonMacSecundario}" Width="135" x:Name="BtnAtajo"/>
+                                <Button Content="Crear credenciales" Margin="7,0,0,0" Style="{StaticResource BotonMacPrimario}" Width="140" x:Name="BtnCredenciales"/>
                             </StackPanel>
 
                             <StackPanel HorizontalAlignment="Center" IsHitTestVisible="False" Opacity="0" Orientation="Horizontal" RenderTransformOrigin="0.5,0.5" VerticalAlignment="Center" Visibility="Collapsed" x:Name="BotonesCredenciales">
@@ -1173,7 +1221,6 @@ $d_FadeFilaPC = "0:0:0.3"
                                 <Button Content="Desinstalar" Style="{StaticResource BotonMacPeligro}" Width="105" x:Name="BtnConfirmarDesinstalar"/>
                             </StackPanel>
 
-                            <!-- PASO 3 YA INTEGRADO ACÁ: Botones de confirmación de red -->
                             <StackPanel HorizontalAlignment="Center" IsHitTestVisible="False" Opacity="0" Orientation="Horizontal" RenderTransformOrigin="0.5,0.5" VerticalAlignment="Center" Visibility="Collapsed" x:Name="BotonesConfirmarRed">
                                 <StackPanel.RenderTransform>
                                     <TransformGroup>
@@ -1209,7 +1256,9 @@ $d_FadeFilaPC = "0:0:0.3"
                                             <Image x:Name="ImgAppArchivos" Stretch="UniformToFill"/>
                                         </Border>
                                         <Canvas Width="60" Height="60">
-                                            <TextBlock Text="Archivos" Width="100" Canvas.Left="-20" Canvas.Top="68" FontFamily="Segoe UI Variable Text, Segoe UI" Foreground="#1D1D1F" FontWeight="Medium" FontSize="12.5" TextAlignment="Center"/>
+                                            <Border Canvas.Left="-20" Canvas.Top="68" Width="100" Background="#FFF5F5F7" RenderOptions.ClearTypeHint="Enabled">
+                                                <TextBlock Text="Archivos" FontFamily="Segoe UI Variable Text, Segoe UI" Foreground="#1D1D1F" FontWeight="Medium" FontSize="12.5" TextAlignment="Center"/>
+                                            </Border>
                                         </Canvas>
                                     </Grid>
                                 </Button>
@@ -1222,7 +1271,9 @@ $d_FadeFilaPC = "0:0:0.3"
                                             <Image x:Name="ImgAppAtajos" Stretch="UniformToFill"/>
                                         </Border>
                                         <Canvas Width="60" Height="60">
-                                            <TextBlock Text="Atajos" Width="100" Canvas.Left="-20" Canvas.Top="68" FontFamily="Segoe UI Variable Text, Segoe UI" Foreground="#1D1D1F" FontWeight="Medium" FontSize="12.5" TextAlignment="Center"/>
+                                            <Border Canvas.Left="-20" Canvas.Top="68" Width="100" Background="#FFF5F5F7" RenderOptions.ClearTypeHint="Enabled">
+                                                <TextBlock Text="Atajos" FontFamily="Segoe UI Variable Text, Segoe UI" Foreground="#1D1D1F" FontWeight="Medium" FontSize="12.5" TextAlignment="Center"/>
+                                            </Border>
                                         </Canvas>
                                     </Grid>
                                 </Button>
@@ -1235,7 +1286,9 @@ $d_FadeFilaPC = "0:0:0.3"
                                             <Image x:Name="ImgAppFotos" Stretch="UniformToFill"/>
                                         </Border>
                                         <Canvas Width="60" Height="60">
-                                            <TextBlock Text="Fotos" Width="100" Canvas.Left="-20" Canvas.Top="68" FontFamily="Segoe UI Variable Text, Segoe UI" Foreground="#1D1D1F" FontWeight="Medium" FontSize="12.5" TextAlignment="Center"/>
+                                            <Border Canvas.Left="-20" Canvas.Top="68" Width="100" Background="#FFF5F5F7" RenderOptions.ClearTypeHint="Enabled">
+                                                <TextBlock Text="Fotos" FontFamily="Segoe UI Variable Text, Segoe UI" Foreground="#1D1D1F" FontWeight="Medium" FontSize="12.5" TextAlignment="Center"/>
+                                            </Border>
                                         </Canvas>
                                     </Grid>
                                 </Button>
@@ -1909,7 +1962,7 @@ $d_FadeFilaPC = "0:0:0.3"
                         </Grid>
                     </Grid>
 
-<!-- CONTENEDOR QR (Redondeado perfecto y expandido al 100%) -->
+<!-- CONTENEDOR QR -->
                     <Grid Grid.Column="1" x:Name="QrContainer" Background="Transparent" HorizontalAlignment="Center" VerticalAlignment="Center" Width="180" Height="180" Panel.ZIndex="3000" RenderTransformOrigin="0.5, 0.5">
                         <Grid.RenderTransform>
                             <TransformGroup>
@@ -1917,23 +1970,30 @@ $d_FadeFilaPC = "0:0:0.3"
                                 <TranslateTransform x:Name="TransQr" X="0" Y="0"/>
                             </TransformGroup>
                         </Grid.RenderTransform>
-                        <!-- Capa 1: Sombra general de la app -->
-                        <Border Background="White" CornerRadius="42" IsHitTestVisible="False">
+                        <!-- Capa 1: Sombra general de la tarjeta -->
+                        <Border Background="White" CornerRadius="24" IsHitTestVisible="False">
                             <Border.Effect>
-                                <DropShadowEffect Color="Black" Direction="270" ShadowDepth="4" BlurRadius="15" Opacity="0.15"/>
+                                <DropShadowEffect Color="Black" Direction="270" ShadowDepth="4" BlurRadius="16" Opacity="0.12"/>
                             </Border.Effect>
                         </Border>
-                        <!-- Capa 2: M scara que expande el QR al borde y lo recorta redondo -->
-                        <Rectangle RadiusX="42" RadiusY="42" IsHitTestVisible="False">
+                        <!-- Capa 2: Tarjeta del QR -->
+                        <Rectangle RadiusX="24" RadiusY="24" IsHitTestVisible="False">
                             <Rectangle.Fill>
                                 <ImageBrush x:Name="ImgQrCodeBrush" Stretch="UniformToFill"/>
                             </Rectangle.Fill>
                         </Rectangle>
-                        <!-- Capa 3: TEXTO DEL QR (Tama o x3 para que al achicarse quede de tama o normal) -->
+                        <!-- Capa 3: Etiqueta 'QR' al achicarse a ícono -->
                         <Canvas Height="180" IsHitTestVisible="False" Width="180">
-                            <TextBlock Canvas.Left="-60" Canvas.Top="204" FontSize="39" FontWeight="Medium" Foreground="Black" Opacity="0" Text="QR" TextAlignment="Center" Width="300" x:Name="QrText"/>
+                            <Border Canvas.Left="-60" Canvas.Top="204" Width="300" Background="#FFF5F5F7" RenderOptions.ClearTypeHint="Enabled" Opacity="0" x:Name="QrText">
+                                <TextBlock FontSize="39" FontWeight="Medium" Foreground="#1D1D1F" Text="QR" TextAlignment="Center"/>
+                            </Border>
                         </Canvas>
                     </Grid>
+                    <Canvas Grid.Column="1" Width="180" Height="180" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False" Panel.ZIndex="2999">
+                        <Border x:Name="QrSubText" Canvas.Left="-35" Canvas.Top="195" Width="250" Background="#FFF5F5F7" RenderOptions.ClearTypeHint="Enabled">
+                            <TextBlock Text="Escane&#x00E1; para obtener el atajo" FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="12.5" FontWeight="Medium" Foreground="#1D1D1F" TextAlignment="Center"/>
+                        </Border>
+                    </Canvas>
 
                   </Grid>
 
@@ -1953,7 +2013,9 @@ $d_FadeFilaPC = "0:0:0.3"
                             </Grid.RowDefinitions>
 
                             <!-- Título del panel -->
-                            <TextBlock Grid.Row="0" Text="Qu&#x00E9; hace cada funci&#x00F3;n en el sistema" FontFamily="Segoe UI Variable Display, Segoe UI" FontSize="18" FontWeight="SemiBold" Foreground="#1D1D1F" HorizontalAlignment="Center" Margin="0,4,0,10"/>
+                            <Border Grid.Row="0" Background="#FFF5F5F7" RenderOptions.ClearTypeHint="Enabled" HorizontalAlignment="Center" Margin="0,4,0,10">
+                                <TextBlock Text="Qu&#x00E9; hace cada funci&#x00F3;n en el sistema" FontFamily="Segoe UI Variable Display, Segoe UI" FontSize="18" FontWeight="SemiBold" Foreground="#1D1D1F"/>
+                            </Border>
 
                             <!-- Lista deslizable de tarjetas -->
                             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Width="480" Margin="0,0,0,8" PanningMode="VerticalOnly" UseLayoutRounding="True" SnapsToDevicePixels="True">
@@ -1996,7 +2058,7 @@ $d_FadeFilaPC = "0:0:0.3"
                                     <Border Background="#FFFFFF" BorderBrush="#E5E5EA" BorderThickness="1" CornerRadius="8" Padding="12,9" Margin="0,0,0,8" RenderOptions.ClearTypeHint="Enabled">
                                         <StackPanel>
                                             <TextBlock Text="Seleccionar carpeta (...) | Carpeta compartida" FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="13" FontWeight="SemiBold" Foreground="#1D1D1F" Margin="0,0,0,3"/>
-                                            <TextBlock Text="El bot&#x00F3;n '...' define la carpeta que vigila el script en segundo plano. Al marcar 'Carpeta compartida', asigna permisos NTFS de modificaci&#x00F3;n al grupo Todos (S-1-1-0), comparte la carpeta por red SMB, pasa la red actual a perfil Privado, habilita el uso compartido de archivos en el Firewall Privado (bloque&#x00E1;ndolo en redes P&#x00FA;blicas) y activa en el Registro (HKLM) la protecci&#x00F3;n por contrase&#x00F1;a con cifrado NTLM de 128 bits." FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="12" Foreground="#48484A" TextWrapping="Wrap" LineHeight="17"/>
+                                            <TextBlock Text="El bot&#x00F3;n '...' define la carpeta que vigila el script en segundo plano. Al activar 'Carpeta compartida', asigna permisos NTFS de modificaci&#x00F3;n al grupo Todos (S-1-1-0), comparte la carpeta por red SMB, pasa la red actual a perfil Privado, habilita el uso compartido de archivos en el Firewall Privado (bloque&#x00E1;ndolo en redes P&#x00FA;blicas) y activa en el Registro (HKLM) la protecci&#x00F3;n por contrase&#x00F1;a con cifrado NTLM de 128 bits." FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="12" Foreground="#48484A" TextWrapping="Wrap" LineHeight="17"/>
                                         </StackPanel>
                                     </Border>
 
@@ -2016,10 +2078,13 @@ $d_FadeFilaPC = "0:0:0.3"
                                         </StackPanel>
                                     </Border>
 
-                                    <!-- 5. Desinstalar -->
+                                    <!-- 5. Desinstalar (Con el botón integrado al estilo Configuración de macOS) -->
                                     <Border Background="#FFFFFF" BorderBrush="#E5E5EA" BorderThickness="1" CornerRadius="8" Padding="12,9" Margin="0,0,0,2" RenderOptions.ClearTypeHint="Enabled">
                                         <StackPanel>
-                                            <TextBlock Text="Desinstalar" FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="13" FontWeight="SemiBold" Foreground="#FF3B30" Margin="0,0,0,3"/>
+                                            <Grid Margin="0,0,0,5">
+                                                <TextBlock Text="Desinstalar" FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="13" FontWeight="SemiBold" Foreground="#FF3B30" VerticalAlignment="Center" HorizontalAlignment="Left"/>
+                                                <Button x:Name="BtnDesinstalar" Content="Desinstalar AirDrop" Foreground="#FF3B30" Style="{StaticResource BotonMacSecundario}" FontSize="12" Padding="10,3" Margin="0" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                                            </Grid>
                                             <TextBlock Text="Deja de compartir la carpeta en red (SMB), elimina el usuario local creado, borra la tarea programada, limpia el Registro de notificaciones, cierra el script en segundo plano, quita el acceso directo del Men&#x00FA; de Inicio y elimina %APPDATA%\AirDrop." FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="12" Foreground="#48484A" TextWrapping="Wrap" LineHeight="17" Margin="0,0,0,5"/>
                                             <TextBlock Text="&#x2022; Qu&#x00E9; no revierte: Tu carpeta y los archivos recibidos quedan intactos. La conexi&#x00F3;n de red permanece como 'Privada', se conservan los permisos NTFS locales de esa carpeta y quedan activas las reglas seguras del Firewall y de cifrado de 128 bits en Windows." FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="12" Foreground="#6E6E73" TextWrapping="Wrap" LineHeight="17" TextOptions.TextHintingMode="Fixed"/>
                                         </StackPanel>
@@ -2049,7 +2114,7 @@ $d_FadeFilaPC = "0:0:0.3"
                                 </Button.Template>
                             </Button>
 
-                            <!-- Botón Volver alineado abajo (UNA SOLA VEZ) -->
+                            <!-- Botón Volver alineado abajo -->
                             <Grid Grid.Row="3" Margin="0,-18,0,-18">
                                 <Button x:Name="BtnVolverAyuda" Content="Volver" Style="{StaticResource BotonMacSecundario}" Width="105" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             </Grid>
@@ -2163,16 +2228,33 @@ $BodyCredenciales = $global:Window.FindName("BodyCredenciales")
 $BotonesCredenciales = $global:Window.FindName("BotonesCredenciales")
 
 # ==========================================================
-# LÓGICA DE AUTO-BORRADO Y RESTAURACIÓN (FOCUS) - 100% ASCII SAFE
+# LÓGICA DE PLACEHOLDERS ESTILO COCOA (SE OCULTAN AL ESCRIBIR)
 # ==========================================================
-$global:PlaceholderPass = "Escribir contrase$([char]0x00F1)a..."
+$global:PlaceholderPass     = "Escribir contrase$([char]0x00F1)a..."
+$PlaceholderUsuario         = $global:Window.FindName("PlaceholderUsuario")
+$PlaceholderPassword        = $global:Window.FindName("PlaceholderPassword")
+
+$global:BrushCursorActivo = (New-Object System.Windows.Media.BrushConverter).ConvertFromString("#1D1D1F")
+
+$TxtUsuario.Add_TextChanged({
+    $vacio = [string]::IsNullOrEmpty($TxtUsuario.Text)
+    if ($PlaceholderUsuario) {
+        $PlaceholderUsuario.Visibility = if ($vacio) { "Visible" } else { "Collapsed" }
+    }
+    $TxtUsuario.CaretBrush = if ($vacio) { [System.Windows.Media.Brushes]::Transparent } else { $global:BrushCursorActivo }
+})
+
+$TxtPassword.Add_TextChanged({
+    $vacio = [string]::IsNullOrEmpty($TxtPassword.Text)
+    if ($PlaceholderPassword) {
+        $PlaceholderPassword.Visibility = if ($vacio) { "Visible" } else { "Collapsed" }
+    }
+    $TxtPassword.CaretBrush = if ($vacio) { [System.Windows.Media.Brushes]::Transparent } else { $global:BrushCursorActivo }
+})
 
 $TxtUsuario.Add_GotFocus({
     if ($TxtUsuario.IsReadOnly) { return }
-    if ($TxtUsuario.Text -eq "Escribir usuario...") {
-        $TxtUsuario.Text = ""
-        $TxtUsuario.Foreground = "#1D1D1F"
-    } elseif ($TxtUsuario.Text -eq "No se admiten espacios") {
+    if ($TxtUsuario.Text -eq "No se admiten espacios") {
         if ($global:TimerEspacios) { $global:TimerEspacios.Stop() }
         
         $animOut = New-Object System.Windows.Media.Animation.DoubleAnimation
@@ -2194,27 +2276,6 @@ $TxtUsuario.Add_GotFocus({
             $TxtUsuario.BeginAnimation([System.Windows.UIElement]::OpacityProperty, $animIn)
         })
         $global:timerClick.Start()
-    }
-})
-
-$TxtUsuario.Add_LostFocus({
-    if (-not $TxtUsuario.IsReadOnly -and [string]::IsNullOrWhiteSpace($TxtUsuario.Text)) {
-        $TxtUsuario.Text = "Escribir usuario..."
-        $TxtUsuario.Foreground = "#86868B"
-    }
-})
-
-$TxtPassword.Add_GotFocus({
-    if (-not $TxtPassword.IsReadOnly -and $TxtPassword.Text -eq $global:PlaceholderPass) {
-        $TxtPassword.Text = ""
-        $TxtPassword.Foreground = "#1D1D1F"
-    }
-})
-
-$TxtPassword.Add_LostFocus({
-    if (-not $TxtPassword.IsReadOnly -and [string]::IsNullOrWhiteSpace($TxtPassword.Text)) {
-        $TxtPassword.Text = $global:PlaceholderPass
-        $TxtPassword.Foreground = "#86868B"
     }
 })
 
@@ -2306,6 +2367,7 @@ $ImgQrCodeBrush = $global:Window.FindName("ImgQrCodeBrush")
 $ScaleQr        = $global:Window.FindName("ScaleQr")
 $TransQr        = $global:Window.FindName("TransQr")
 $QrText         = $global:Window.FindName("QrText")
+$QrSubText      = $global:Window.FindName("QrSubText")
 
 Set-QrCodeFromUrl $UrlAtajoQR $ImgQrCodeBrush
 
@@ -2314,6 +2376,7 @@ function Animar-FadeQrText($toOpacity, $delayMs) {
     $anim.To = [double]$toOpacity
     $anim.Duration = New-Object System.Windows.Duration([TimeSpan]::FromMilliseconds(200))
     if ($delayMs -gt 0) { $anim.BeginTime = [TimeSpan]::FromMilliseconds($delayMs) }
+    [System.Windows.Media.Animation.Timeline]::SetDesiredFrameRate($anim, 144)
     $QrText.BeginAnimation([System.Windows.UIElement]::OpacityProperty, $anim)
 }
 
@@ -2404,7 +2467,7 @@ function Test-AirDropConditions {
 }
 
 # ==========================================================
-# FUNCIÓN DE TRANSICIÓN ASIMÉTRICA ESTILO MACOS SEQUOIA
+# FUNCION DE TRANSICION ASIMETRICA ESTILO MACOS SEQUOIA (144 FPS SIN RENDERTRANSFORM)
 # ==========================================================
 function Transicion-Paneles {
     param($OcultarBody, $OcultarBotones, $MostrarBody, $MostrarBotones, [int]$Direccion = 1)
@@ -2424,48 +2487,53 @@ function Transicion-Paneles {
     $easeIn  = New-Object System.Windows.Media.Animation.CubicEase -Property @{ EasingMode = 'EaseIn' }
     $easeOut = New-Object System.Windows.Media.Animation.CubicEase -Property @{ EasingMode = 'EaseOut' }
 
-    # Salida: solo Opacidad + Deslizamiento vertical (sin escalar texto para no deformar mayúsculas)
     $animOutOp    = New-Object System.Windows.Media.Animation.DoubleAnimation(0.0, $durOut) -Property @{ EasingFunction = $easeIn }
     $slideOutTgt  = if ($Direccion -gt 0) { -8.0 } else { 8.0 }
-    $animOutSlide = New-Object System.Windows.Media.Animation.DoubleAnimation($slideOutTgt, $durOut) -Property @{ EasingFunction = $easeIn }
+    $thickZero    = New-Object System.Windows.Thickness(0, 0, 0, 0)
+    $thickOutTo   = New-Object System.Windows.Thickness(0, $slideOutTgt, 0, (-$slideOutTgt))
+    $animOutSlide = New-Object System.Windows.Media.Animation.ThicknessAnimation($thickZero, $thickOutTo, $durOut) -Property @{ EasingFunction = $easeIn }
+    [System.Windows.Media.Animation.Timeline]::SetDesiredFrameRate($animOutOp, 144)
+    [System.Windows.Media.Animation.Timeline]::SetDesiredFrameRate($animOutSlide, 144)
 
     foreach ($el in (@($OcultarBody, $OcultarBotones) | Select-Object -Unique)) {
+        $el.RenderTransform = $null
         $el.BeginAnimation([System.Windows.UIElement]::OpacityProperty, $animOutOp)
-        if ($el.RenderTransform -is [System.Windows.Media.TransformGroup]) {
-            $el.RenderTransform.Children[0].BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleXProperty, $null)
-            $el.RenderTransform.Children[0].BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleYProperty, $null)
-            $el.RenderTransform.Children[0].ScaleX = 1.0
-            $el.RenderTransform.Children[0].ScaleY = 1.0
-            $el.RenderTransform.Children[1].BeginAnimation([System.Windows.Media.TranslateTransform]::YProperty, $animOutSlide)
-        }
+        $el.BeginAnimation([System.Windows.FrameworkElement]::MarginProperty, $animOutSlide)
     }
 
-    # Entrada: desfasada 80ms con Deslizamiento vertical + Opacidad
     $animInOp    = New-Object System.Windows.Media.Animation.DoubleAnimation(0.0, 1.0, $durIn) -Property @{ EasingFunction = $easeOut; BeginTime = $delayIn }
     $slideInStrt = if ($Direccion -gt 0) { 10.0 } else { -10.0 }
-    $animInSlide = New-Object System.Windows.Media.Animation.DoubleAnimation($slideInStrt, 0.0, $durIn) -Property @{ EasingFunction = $easeOut; BeginTime = $delayIn }
+    $thickInFrom = New-Object System.Windows.Thickness(0, $slideInStrt, 0, (-$slideInStrt))
+    $animInSlide = New-Object System.Windows.Media.Animation.ThicknessAnimation($thickInFrom, $thickZero, $durIn) -Property @{ EasingFunction = $easeOut; BeginTime = $delayIn }
+    [System.Windows.Media.Animation.Timeline]::SetDesiredFrameRate($animInOp, 144)
+    [System.Windows.Media.Animation.Timeline]::SetDesiredFrameRate($animInSlide, 144)
 
     foreach ($el in (@($MostrarBody, $MostrarBotones) | Select-Object -Unique)) {
+        $el.RenderTransform = $null
         $el.Opacity = 0
+        $el.Margin = $thickInFrom
         $el.BeginAnimation([System.Windows.UIElement]::OpacityProperty, $animInOp)
-        if ($el.RenderTransform -is [System.Windows.Media.TransformGroup]) {
-            $el.RenderTransform.Children[0].BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleXProperty, $null)
-            $el.RenderTransform.Children[0].BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleYProperty, $null)
-            $el.RenderTransform.Children[0].ScaleX = 1.0
-            $el.RenderTransform.Children[0].ScaleY = 1.0
-            $el.RenderTransform.Children[1].BeginAnimation([System.Windows.Media.TranslateTransform]::YProperty, $animInSlide)
-        }
+        $el.BeginAnimation([System.Windows.FrameworkElement]::MarginProperty, $animInSlide)
     }
     
-Wait-Wpf -Milliseconds 320
+    Wait-Wpf -Milliseconds 325
     
     foreach ($el in (@($OcultarBody, $OcultarBotones) | Select-Object -Unique)) {
         if ($el.Opacity -lt 0.05) {
             $el.Visibility = "Collapsed"
-            if ($el.RenderTransform -is [System.Windows.Media.TransformGroup]) {
-                $el.RenderTransform.Children[1].BeginAnimation([System.Windows.Media.TranslateTransform]::YProperty, $null)
-                $el.RenderTransform.Children[1].Y = 0
-            }
+            $el.BeginAnimation([System.Windows.UIElement]::OpacityProperty, $null)
+            $el.BeginAnimation([System.Windows.FrameworkElement]::MarginProperty, $null)
+            $el.Opacity = 0.0
+            $el.Margin = $thickZero
+        }
+    }
+
+    foreach ($el in (@($MostrarBody, $MostrarBotones) | Select-Object -Unique)) {
+        if ($el.Visibility -eq "Visible") {
+            $el.BeginAnimation([System.Windows.UIElement]::OpacityProperty, $null)
+            $el.BeginAnimation([System.Windows.FrameworkElement]::MarginProperty, $null)
+            $el.Opacity = 1.0
+            $el.Margin = $thickZero
         }
     }
 }
@@ -2474,31 +2542,31 @@ function Animar-HeaderMac([bool]$Mostrar) {
     $dur  = New-Object System.Windows.Duration([TimeSpan]::FromMilliseconds($(if ($Mostrar) { 240 } else { 140 })))
     $ease = New-Object System.Windows.Media.Animation.CubicEase -Property @{ EasingMode = $(if ($Mostrar) { 'EaseOut' } else { 'EaseIn' }) }
 
+    $thickZero = New-Object System.Windows.Thickness(0, 0, 0, 0)
+    $thickUp   = New-Object System.Windows.Thickness(0, -10, 0, 10)
+
     $animOp    = New-Object System.Windows.Media.Animation.DoubleAnimation($(if ($Mostrar) { 1.0 } else { 0.0 }), $dur) -Property @{ EasingFunction = $ease }
-    $animSc    = New-Object System.Windows.Media.Animation.DoubleAnimation($(if ($Mostrar) { 1.0 } else { 0.92 }), $dur) -Property @{ EasingFunction = $ease }
-    $animSlide = New-Object System.Windows.Media.Animation.DoubleAnimation($(if ($Mostrar) { -10.0 } else { 0.0 }), $(if ($Mostrar) { 0.0 } else { -10.0 }), $dur) -Property @{ EasingFunction = $ease }
+    $animSlide = New-Object System.Windows.Media.Animation.ThicknessAnimation($(if ($Mostrar) { $thickUp } else { $thickZero }), $(if ($Mostrar) { $thickZero } else { $thickUp }), $dur) -Property @{ EasingFunction = $ease }
+    [System.Windows.Media.Animation.Timeline]::SetDesiredFrameRate($animOp, 144)
+    [System.Windows.Media.Animation.Timeline]::SetDesiredFrameRate($animSlide, 144)
 
     if ($Mostrar) {
         $delay = [TimeSpan]::FromMilliseconds(80)
         $animOp.BeginTime    = $delay
-        $animSc.BeginTime    = $delay
         $animSlide.BeginTime = $delay
     }
+
+    $BtnLogo.RenderTransform = $null
+    $TxtAirDropTitle.RenderTransform = $null
 
     $BtnLogo.IsHitTestVisible = $Mostrar
     $TxtAirDropTitle.IsHitTestVisible = $Mostrar
 
-    # Animar Logo
     $BtnLogo.BeginAnimation([System.Windows.UIElement]::OpacityProperty, $animOp)
-    $global:Window.FindName("LogoScale").BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleXProperty, $animSc)
-    $global:Window.FindName("LogoScale").BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleYProperty, $animSc)
-    $global:Window.FindName("LogoTranslate").BeginAnimation([System.Windows.Media.TranslateTransform]::YProperty, $animSlide)
+    $BtnLogo.BeginAnimation([System.Windows.FrameworkElement]::MarginProperty, $animSlide)
 
-    # Animar Título "AirDrop" en sincronía con el Logo
     $TxtAirDropTitle.BeginAnimation([System.Windows.UIElement]::OpacityProperty, $animOp)
-    $global:Window.FindName("TitleScale").BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleXProperty, $animSc)
-    $global:Window.FindName("TitleScale").BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleYProperty, $animSc)
-    $global:Window.FindName("TitleTranslate").BeginAnimation([System.Windows.Media.TranslateTransform]::YProperty, $animSlide)
+    $TxtAirDropTitle.BeginAnimation([System.Windows.FrameworkElement]::MarginProperty, $animSlide)
 }
 
 function Set-WpfImage($b64, $control, $vectorControl = $null) {
@@ -2536,10 +2604,12 @@ function Animar-Icono($transForm, $toX, $toY, $delayMs) {
     $animX = New-Object System.Windows.Media.Animation.DoubleAnimation
     $animX.To = [double]$toX; $animX.Duration = $duracion; $animX.EasingFunction = $ease
     if ($delayMs -gt 0) { $animX.BeginTime = [TimeSpan]::FromMilliseconds($delayMs) }
+    [System.Windows.Media.Animation.Timeline]::SetDesiredFrameRate($animX, 144)
     
     $animY = New-Object System.Windows.Media.Animation.DoubleAnimation
     $animY.To = [double]$toY; $animY.Duration = $duracion; $animY.EasingFunction = $ease
     if ($delayMs -gt 0) { $animY.BeginTime = [TimeSpan]::FromMilliseconds($delayMs) }
+    [System.Windows.Media.Animation.Timeline]::SetDesiredFrameRate($animY, 144)
     
     $transForm.BeginAnimation([System.Windows.Media.TranslateTransform]::XProperty, $animX)
     $transForm.BeginAnimation([System.Windows.Media.TranslateTransform]::YProperty, $animY)
@@ -2547,8 +2617,8 @@ function Animar-Icono($transForm, $toX, $toY, $delayMs) {
 
 $global:QrShadowRect = New-Object System.Windows.Shapes.Rectangle
 $global:QrShadowRect.Fill = [System.Windows.Media.Brushes]::White
-$global:QrShadowRect.RadiusX = 0
-$global:QrShadowRect.RadiusY = 0
+$global:QrShadowRect.RadiusX = 24
+$global:QrShadowRect.RadiusY = 24
 $global:QrShadowRect.IsHitTestVisible = $false
 if ($QrContainer.Children[0] -is [System.Windows.Controls.Border]) {
     $global:QrShadowRect.Effect = $QrContainer.Children[0].Effect
@@ -2556,8 +2626,10 @@ if ($QrContainer.Children[0] -is [System.Windows.Controls.Border]) {
     $QrContainer.Children.Insert(0, $global:QrShadowRect)
 }
 $global:QrImageRect = $QrContainer.Children[1]
-$global:QrImageRect.RadiusX = 0
-$global:QrImageRect.RadiusY = 0
+$global:QrImageRect.RadiusX = 24
+$global:QrImageRect.RadiusY = 24
+$global:QrImageRect.Stroke = (New-Object System.Windows.Media.BrushConverter).ConvertFromString("#18000000")
+$global:QrImageRect.StrokeThickness = 1
 
 function Animar-ScaleQr($toScale, $delayMs) {
     $duracion = New-Object System.Windows.Duration([TimeSpan]::FromSeconds(0.4))
@@ -2569,16 +2641,18 @@ function Animar-ScaleQr($toScale, $delayMs) {
     $animScale.Duration = $duracion
     $animScale.EasingFunction = $ease
     if ($delayMs -gt 0) { $animScale.BeginTime = [TimeSpan]::FromMilliseconds($delayMs) }
+    [System.Windows.Media.Animation.Timeline]::SetDesiredFrameRate($animScale, 144)
     
     $ScaleQr.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleXProperty, $animScale)
     $ScaleQr.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleYProperty, $animScale)
 
-    $targetRadius = if ($toScale -lt 0.8) { 42.0 } else { 0.0 }
+    $targetRadius = if ($toScale -lt 0.8) { 42.0 } else { 24.0 }
     $animRadius = New-Object System.Windows.Media.Animation.DoubleAnimation
     $animRadius.To = [double]$targetRadius
     $animRadius.Duration = $duracion
     $animRadius.EasingFunction = $ease
     if ($delayMs -gt 0) { $animRadius.BeginTime = [TimeSpan]::FromMilliseconds($delayMs) }
+    [System.Windows.Media.Animation.Timeline]::SetDesiredFrameRate($animRadius, 144)
 
     if ($global:QrShadowRect) {
         $global:QrShadowRect.BeginAnimation([System.Windows.Shapes.Rectangle]::RadiusXProperty, $animRadius)
@@ -2587,6 +2661,16 @@ function Animar-ScaleQr($toScale, $delayMs) {
     if ($global:QrImageRect) {
         $global:QrImageRect.BeginAnimation([System.Windows.Shapes.Rectangle]::RadiusXProperty, $animRadius)
         $global:QrImageRect.BeginAnimation([System.Windows.Shapes.Rectangle]::RadiusYProperty, $animRadius)
+    }
+    if ($QrSubText) {
+        $animSub = New-Object System.Windows.Media.Animation.DoubleAnimation
+        $animSub.To = if ($toScale -lt 0.8) { 0.0 } else { 1.0 }
+        $animSub.Duration = New-Object System.Windows.Duration([TimeSpan]::FromMilliseconds($(if ($toScale -lt 0.8) { 140 } else { 220 })))
+        if ($toScale -ge 0.8 -and $delayMs -gt 0) {
+            $animSub.BeginTime = [TimeSpan]::FromMilliseconds($delayMs + 350)
+        }
+        [System.Windows.Media.Animation.Timeline]::SetDesiredFrameRate($animSub, 144)
+        $QrSubText.BeginAnimation([System.Windows.UIElement]::OpacityProperty, $animSub)
     }
 }
 
@@ -2660,9 +2744,11 @@ if ($isInstalled) {
     if ($config.Usuario) {
         $BtnCredenciales.Content = "Ver credenciales"
         $BtnCredenciales.Style = $global:Window.FindResource("BotonMacSecundario")
+        $BtnAtajo.Style = $global:Window.FindResource("BotonMacPrimario")
     } else {
         $BtnCredenciales.Content = "Crear credenciales"
         $BtnCredenciales.Style = $global:Window.FindResource("BotonMacPrimario")
+        $BtnAtajo.Style = $global:Window.FindResource("BotonMacSecundario")
     }
     if ($config.Carpeta) { $TxtRuta.Text = $config.Carpeta }
 
@@ -2766,11 +2852,10 @@ function Alinear-VolverAtajos {
                 $pBtn = $BtnAtajo.TransformToAncestor($parent).Transform([System.Windows.Point]::new(0, 0))
                 $pPanel = $AtajosFullPanel.TransformToAncestor($parent).Transform([System.Windows.Point]::new(0, 0))
 
-                # Descontar cualquier TranslateTransform.Y activo para obtener siempre la coordenada estática exacta
-                $offsetBtn = if ($BotonesPrincipal.RenderTransform -is [System.Windows.Media.TransformGroup]) { [double]$BotonesPrincipal.RenderTransform.Children[1].Y } else { 0.0 }
-                $offsetPanel = if ($AtajosFullPanel.RenderTransform -is [System.Windows.Media.TransformGroup]) { [double]$AtajosFullPanel.RenderTransform.Children[1].Y } else { 0.0 }
+                $offsetBtn = [double]$BotonesPrincipal.Margin.Top
+                $offsetPanel = [double]$AtajosFullPanel.Margin.Top
 
-                $top = [Math]::Max(0.0, ($pBtn.Y - $offsetBtn) - ($pPanel.Y - $offsetPanel))
+                $top = [Math]::Round([Math]::Max(0.0, ($pBtn.Y - $offsetBtn) - ($pPanel.Y - $offsetPanel)))
 
                 $BtnVolverAtajos.VerticalAlignment = "Top"
                 $BtnVolverAtajos.Margin = [System.Windows.Thickness]::new(0, $top, 0, 0)
@@ -2799,10 +2884,10 @@ function Posicionar-AppsLaterales {
         $hFotos = [double]$BtnAppFotos.ActualHeight
         if ($hFotos -le 0) { $hFotos = 60 }
 
-        $topAtajos = [Math]::Max(0.0, ($hPanel - $hAtajos) / 2.0)
+        $topAtajos = [Math]::Round([Math]::Max(0.0, ($hPanel - $hAtajos) / 2.0))
         $gap = 35.0
-        $topArchivos = [Math]::Max(0.0, $topAtajos - $gap - $hArchivos)
-        $topFotos = [Math]::Min([Math]::Max(0.0, $hPanel - $hFotos), $topAtajos + $hAtajos + $gap)
+        $topArchivos = [Math]::Round([Math]::Max(0.0, $topAtajos - $gap - $hArchivos))
+        $topFotos = [Math]::Round([Math]::Min([Math]::Max(0.0, $hPanel - $hFotos), $topAtajos + $hAtajos + $gap))
 
         $BtnAppAtajos.VerticalAlignment = "Top"
         $BtnAppAtajos.Margin = [System.Windows.Thickness]::new(0, $topAtajos, 0, 0)
@@ -3103,11 +3188,13 @@ if (($AutoInstall -or (-not $PSCommandPath)) -and (-not $isInstalled)) {
 }
 
 $BtnDesinstalar.Add_Click({
-    Transicion-Paneles -OcultarBody $BodyPrincipal -OcultarBotones $BotonesPrincipal -MostrarBody $BodyDesinstalar -MostrarBotones $BotonesDesinstalar -Direccion 1
+    Animar-HeaderMac -Mostrar $true
+    Transicion-Paneles -OcultarBody $AyudaFullPanel -OcultarBotones $AyudaFullPanel -MostrarBody $BodyDesinstalar -MostrarBotones $BotonesDesinstalar -Direccion 1
 })
 
 $BtnCancelarDesinstalar.Add_Click({
-    Transicion-Paneles -OcultarBody $BodyDesinstalar -OcultarBotones $BotonesDesinstalar -MostrarBody $BodyPrincipal -MostrarBotones $BotonesPrincipal -Direccion -1
+    Animar-HeaderMac -Mostrar $false
+    Transicion-Paneles -OcultarBody $BodyDesinstalar -OcultarBotones $BotonesDesinstalar -MostrarBody $AyudaFullPanel -MostrarBotones $AyudaFullPanel -Direccion -1
 })
 
 $BtnConfirmarDesinstalar.Add_Click({
@@ -3154,8 +3241,26 @@ $BtnConfirmarDesinstalar.Add_Click({
         Wait-Wpf -Milliseconds 150
         $global:Window.Close()
     } else {
-        Transicion-Paneles -OcultarBody $BodyDesinstalar -OcultarBotones $BotonesDesinstalar -MostrarBody $BodyPrincipal -MostrarBotones $BotonesPrincipal -Direccion -1
+        Animar-HeaderMac -Mostrar $false
+        Transicion-Paneles -OcultarBody $BodyDesinstalar -OcultarBotones $BotonesDesinstalar -MostrarBody $AyudaFullPanel -MostrarBotones $AyudaFullPanel -Direccion -1
     }
+})
+
+function Restaurar-FocoVentana {
+    try {
+        $hwnd = (New-Object System.Windows.Interop.WindowInteropHelper($global:Window)).Handle
+        $global:Window.Topmost = $true
+        if ($hwnd -ne [IntPtr]::Zero) { [Win32]::SetForegroundWindow($hwnd) | Out-Null }
+        $global:Window.Activate() | Out-Null
+        $global:Window.Topmost = $false
+        $global:Window.Focus() | Out-Null
+    } catch {}
+}
+
+$ChkWindows.Add_PreviewMouseLeftButtonDown({
+    param($sender, $e)
+    $e.Handled = $true
+    $ChkWindows.RaiseEvent((New-Object System.Windows.RoutedEventArgs([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)))
 })
 
 $ChkWindows.Add_Click({
@@ -3169,22 +3274,31 @@ $ChkWindows.Add_Click({
         return
     }
 
+    $nuevoEstado = -not [bool]$ChkWindows.IsChecked
+
     [System.Windows.Input.Mouse]::OverrideCursor = [System.Windows.Input.Cursors]::Wait
     $ChkWindows.Dispatcher.Invoke([Action]{}, 'Render')
+    $global:EjecutandoAdmin = $true
 
-    if ($ChkWindows.IsChecked -eq $true) {
-        $adminCode = "try { Enable-ScheduledTask -TaskName 'AirDrop' } catch { exit 1 }"
+    try {
+        if ($nuevoEstado) {
+            $adminCode = "try { Enable-ScheduledTask -TaskName 'AirDrop' } catch { exit 1 }"
+        } else {
+            $adminCode = "try { Disable-ScheduledTask -TaskName 'AirDrop' } catch { exit 1 }"
+        }
         $exitCode = Invoke-AdminCommand -ScriptCode $adminCode -Wait $true
-    } else {
-        $adminCode = "try { Disable-ScheduledTask -TaskName 'AirDrop' } catch { exit 1 }"
-        $exitCode = Invoke-AdminCommand -ScriptCode $adminCode -Wait $true
+    } finally {
+        [System.Windows.Input.Mouse]::OverrideCursor = $null
+        $global:EjecutandoAdmin = $false
     }
 
-    [System.Windows.Input.Mouse]::OverrideCursor = $null
+    Restaurar-FocoVentana
 
-    if ($exitCode -ne 0) {
+    if ($exitCode -eq 0) {
+        Wait-Wpf -Milliseconds 300
+        Restaurar-FocoVentana
         $global:IgnorarClickWin = $true
-        $ChkWindows.IsChecked = -not $ChkWindows.IsChecked
+        $ChkWindows.IsChecked = $nuevoEstado
         $global:IgnorarClickWin = $false
     }
 })
@@ -3194,6 +3308,12 @@ $BotonesConfirmarRed = $global:Window.FindName("BotonesConfirmarRed")
 $BtnCancelarRed      = $global:Window.FindName("BtnCancelarRed")
 $BtnConfirmarRed     = $global:Window.FindName("BtnConfirmarRed")
 
+$ChkCompartida.Add_PreviewMouseLeftButtonDown({
+    param($sender, $e)
+    $e.Handled = $true
+    $ChkCompartida.RaiseEvent((New-Object System.Windows.RoutedEventArgs([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)))
+})
+
 $ChkCompartida.Add_Click({
     if ($global:IgnorarClick) { return }
 
@@ -3201,10 +3321,6 @@ $ChkCompartida.Add_Click({
     $esMensajeError = ($null -ne $global:msgErrorRuta -and $ruta -eq $global:msgErrorRuta)
 
     if (-not (Test-Path -LiteralPath $ruta) -or $ruta -eq "Seleccionar carpeta para monitorizar." -or $esMensajeError) {
-        $global:IgnorarClick = $true
-        $ChkCompartida.IsChecked = $false
-        $global:IgnorarClick = $false
-
         if ($null -eq $global:RutaOriginalRespaldo) {
             $global:RutaOriginalRespaldo = $TxtRuta.Text
         }
@@ -3263,11 +3379,7 @@ $ChkCompartida.Add_Click({
         return
     }
 
-    if ($ChkCompartida.IsChecked -eq $true) {
-        $global:IgnorarClick = $true
-        $ChkCompartida.IsChecked = $false
-        $global:IgnorarClick = $false
-
+    if (-not $ChkCompartida.IsChecked) {
         Transicion-Paneles -OcultarBody $BodyPrincipal -OcultarBotones $BotonesPrincipal -MostrarBody $BodyConfirmarRed -MostrarBotones $BotonesConfirmarRed -Direccion 1
         return
     }
@@ -3283,6 +3395,9 @@ $ChkCompartida.Add_Click({
             $cfg = Get-AppConfig
             $cfg.CarpetaActiva = ""
             Save-AppConfig $cfg
+            $global:IgnorarClick = $true
+            $ChkCompartida.IsChecked = $false
+            $global:IgnorarClick = $false
             return
         }
 
@@ -3298,19 +3413,18 @@ $ChkCompartida.Add_Click({
         $global:EjecutandoAdmin = $false
     }
 
+    Restaurar-FocoVentana
+
     if ($exitCode -eq 0) {
         $cfg = Get-AppConfig
         $cfg.CarpetaActiva = ""
         Save-AppConfig $cfg
 
-        if (Test-Path $vbsMonitorPath) {
-            $MonitorProcs = Get-CimInstance Win32_Process -Filter "Name='powershell.exe' OR Name='pwsh.exe'" | Where-Object { $_.CommandLine -match '-MonitorBackground' }
-            if ($MonitorProcs) { $MonitorProcs | ForEach-Object { Stop-Process $_.ProcessId -Force -ErrorAction SilentlyContinue } }
-            Start-Process wscript.exe -ArgumentList "`"$vbsMonitorPath`""
-        }
-    } else {
+        Wait-Wpf -Milliseconds 300
+        Restaurar-FocoVentana
+
         $global:IgnorarClick = $true
-        $ChkCompartida.IsChecked = $true
+        $ChkCompartida.IsChecked = $false
         $global:IgnorarClick = $false
     }
 })
@@ -3357,29 +3471,31 @@ $BtnConfirmarRed.Add_Click({
         $global:EjecutandoAdmin = $false
     }
 
-    if ($exitCode -eq 0) {
-        $global:IgnorarClick = $true
-        $ChkCompartida.IsChecked = $true
-        $global:IgnorarClick = $false
+    Restaurar-FocoVentana
 
+    if ($exitCode -eq 0) {
         $cfg = Get-AppConfig
         $cfg.CarpetaActiva = $ruta
         Save-AppConfig $cfg
+
+        if (Test-Path $vbsMonitorPath) {
+            $monRunning = Get-CimInstance Win32_Process -Filter "Name='powershell.exe' OR Name='pwsh.exe'" | Where-Object { $_.CommandLine -match '-MonitorBackground' }
+            if (-not $monRunning) {
+                Start-Process wscript.exe -ArgumentList "`"$vbsMonitorPath`""
+            }
+        }
+
+        Wait-Wpf -Milliseconds 300
+        Restaurar-FocoVentana
+
+        $global:IgnorarClick = $true
+        $ChkCompartida.IsChecked = $true
+        $global:IgnorarClick = $false
 
         try { 
             $sbExito = $global:Window.FindResource('AnimacionExito')
             if ($sbExito) { $sbExito.Begin($global:Window, $true) }
         } catch {}
-
-        if (Test-Path $vbsMonitorPath) {
-            $MonitorProcs = Get-CimInstance Win32_Process -Filter "Name='powershell.exe' OR Name='pwsh.exe'" | Where-Object { $_.CommandLine -match '-MonitorBackground' }
-            if ($MonitorProcs) { $MonitorProcs | ForEach-Object { Stop-Process $_.ProcessId -Force -ErrorAction SilentlyContinue } }
-            Start-Process wscript.exe -ArgumentList "`"$vbsMonitorPath`""
-        }
-    } else {
-        $global:IgnorarClick = $true
-        $ChkCompartida.IsChecked = $false
-        $global:IgnorarClick = $false
     }
 })
 
@@ -3452,8 +3568,8 @@ $BtnCredenciales.Add_Click({
         $TxtUsuario.TextAlignment = "Center"
         $TxtPassword.TextAlignment = "Center"
     } else {
-        $TxtUsuario.Text = "Escribir usuario..."
-        $TxtPassword.Text = $global:PlaceholderPass
+        $TxtUsuario.Text = ""
+        $TxtPassword.Text = ""
         
         $BtnEliminarCredenciales.Visibility = "Collapsed"
         $BtnContinuar.Visibility = "Visible"
@@ -3467,8 +3583,8 @@ $BtnCredenciales.Add_Click({
         if ($TxtUsuario.Parent) { $TxtUsuario.Parent.IsHitTestVisible = $true }
         if ($TxtPassword.Parent) { $TxtPassword.Parent.IsHitTestVisible = $true }
 
-        $TxtUsuario.Foreground = "#86868B"
-        $TxtPassword.Foreground = "#86868B"
+        $TxtUsuario.Foreground = "#1D1D1F"
+        $TxtPassword.Foreground = "#1D1D1F"
         $TxtUsuario.TextAlignment = "Left"
         $TxtPassword.TextAlignment = "Left"
     }
@@ -3501,6 +3617,7 @@ $BtnEliminarCredenciales.Add_Click({
 
         $BtnCredenciales.Content = "Crear credenciales"
         $BtnCredenciales.Style = $global:Window.FindResource("BotonMacPrimario")
+        $BtnAtajo.Style = $global:Window.FindResource("BotonMacSecundario")
         Transicion-Paneles -OcultarBody $BodyCredenciales -OcultarBotones $BotonesCredenciales -MostrarBody $BodyPrincipal -MostrarBotones $BotonesPrincipal -Direccion -1
     }
 })
@@ -3636,6 +3753,7 @@ $BtnContinuar.Add_Click({
 
         $BtnCredenciales.Content = "Ver credenciales"
         $BtnCredenciales.Style = $global:Window.FindResource("BotonMacSecundario")
+        $BtnAtajo.Style = $global:Window.FindResource("BotonMacPrimario")
         Transicion-Paneles -OcultarBody $BodyCredenciales -OcultarBotones $BotonesCredenciales -MostrarBody $BodyPrincipal -MostrarBotones $BotonesPrincipal -Direccion -1
         
     } catch {
