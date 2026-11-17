@@ -1,5 +1,5 @@
 # AirDrop-like-thing-for-Windows
-Uses an iPhone shortcut to transfer or receive files from a shared folder on Windows. Has some built-in "tutorials". Uses PowerShell so Windows Defender doesn't convulse. Mostly written by Gemini. 100% AI slop.
+Uses an iPhone shortcut to transfer or receive files from a shared folder on Windows. Has some built-in "tutorials". Uses PowerShell so Windows Defender doesn't convulse. Mostly written by Gemini.
 
 Open PowerShell as admin and paste this:
 ```powershell
