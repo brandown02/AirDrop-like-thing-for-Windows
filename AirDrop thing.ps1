@@ -1,7 +1,11 @@
-param([switch]$MonitorBackground, [switch]$MonitorHttp, [switch]$AutoInstall, [switch]$OpenAyuda)
+param([switch]$MonitorBackground, [switch]$MonitorHttp, [switch]$AutoInstall, [switch]$OpenAyuda, [switch]$Uninstall)
 $global:CodigoEnMemoria = (Get-PSCallStack)[0].Position.StartScriptPosition.GetFullScript()
 $global:SalirSinVentana = $false
 $global:AppIsRunning = $false
+
+$AppVersion         = "v3.1"
+$GitHubRepo         = "brandown02/AirDrop-like-thing-for-Windows"
+$UpdateInstallerUrl = "is.gd/AirDrop_Thing"
 
 # ==========================================================
 # IMAGENES Y AUDIO EN BASE64
@@ -14,7 +18,6 @@ $Base64_AppFotos    = "iVBORw0KGgoAAAANSUhEUgAAAcsAAAHNCAYAAABxW1BaAAAAAXNSR0IAr
 $Base64_CarpetaiOS  = "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"                # icono Carpeta (Users)
 $UrlAtajoQR = "https://www.icloud.com/shortcuts/75ccc6f6a28240fdacc029cb1303cbcd" # <-- QR SMB
 $UrlAtajoQR_HTTP = "https://www.icloud.com/shortcuts/c36383cacb67427a94089e1c355294ea"   # <-- QR HTTP
-
 
 function Set-QrCodeFromUrl ($url, $brush) {
     try {
@@ -57,10 +60,13 @@ $audioDest = "$appDataFolder\notificacion.wav"
 $vbsMonitorSmbPath  = "$appDataFolder\Monitor_SMB.vbs"
 $vbsMonitorHttpPath = "$appDataFolder\Monitor_HTTP.vbs"
 $vbsGuiPath         = "$appDataFolder\GUI.vbs"
+$vbsUninstallPath   = "$appDataFolder\Uninstall.vbs"
 $startMenuPath      = Join-Path ([Environment]::GetFolderPath('Programs')) "AirDrop.lnk"
+$uninstallRegPath   = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\AirDrop"
 
 $TaskNameSMB  = "AirDrop (SMB)"
 $TaskNameHTTP = "AirDrop (HTTP)"
+$isInstalled  = if ($PSCommandPath) { ((Split-Path $PSCommandPath -Parent) -eq $appDataFolder) } else { $false }
 
 # ==========================================================
 # CONFIGURACION DEL MONITOR HTTP (PREDETERMINADO)
@@ -71,7 +77,6 @@ $HttpToken    = "clave-test-123"   # Debe coincidir con X-Auth-Token en el iPhon
 $HttpCooldown = 3                  # Segundos minimos entre notificaciones por carpeta
 
 # Marcadores disponibles en Mensaje: {ruta}, {rutaCompleta}, {archivo}
-$Escritorio = [Environment]::GetFolderPath("Desktop")
 $HttpCarpetasConfig = [ordered]@{
     "airdrop" = @{
         UsarJsonAirDrop = $true    # Lee en vivo la propiedad Carpeta desde credentials.json
@@ -593,6 +598,7 @@ public static class ShellThumbnailV2 {
             Token             = $HttpToken
             AppID             = "AirDrop.App"
             JsonAirDrop       = $jsonPath
+            LangsFolder       = Join-Path $appDataFolder "Langs"
             RutaSonido        = $audioDest
             Cooldown          = $HttpCooldown
             CarpetasConfig    = $HttpCarpetasConfig
@@ -609,6 +615,7 @@ public static class ShellThumbnailV2 {
             $Token                = $sync.Token
             $AppID                = $sync.AppID
             $JsonAirDrop          = $sync.JsonAirDrop
+            $LangsFolder          = $sync.LangsFolder
             $RutaSonido           = $sync.RutaSonido
             $CooldownNotificacion = $sync.Cooldown
             $CarpetasConfig       = $sync.CarpetasConfig
@@ -642,12 +649,14 @@ public static class ShellThumbnailV2 {
             $script:JsonCacheModUtc = [datetime]::MinValue
             $script:JsonCachePath   = $null
             $script:JsonCacheToken  = $Token
+            $script:JsonCacheToast  = $null
 
             function Sync-AirDropJson {
                 if (-not (Test-Path -LiteralPath $JsonAirDrop -PathType Leaf)) {
                     $script:JsonCacheModUtc = [datetime]::MinValue
                     $script:JsonCachePath   = $null
                     $script:JsonCacheToken  = $Token
+                    $script:JsonCacheToast  = $null
                     return
                 }
                 try {
@@ -668,6 +677,18 @@ public static class ShellThumbnailV2 {
                         $script:JsonCacheToken = if ($null -ne $data -and $data.PSObject.Properties['TokenHttp'] -and -not [string]::IsNullOrWhiteSpace([string]$data.TokenHttp)) {
                             [string]$data.TokenHttp
                         } else { $Token }
+
+                        $script:JsonCacheToast = $null
+                        $lCode = if ($null -ne $data -and $data.PSObject.Properties['Idioma'] -and -not [string]::IsNullOrWhiteSpace([string]$data.Idioma)) {
+                            [string]$data.Idioma
+                        } else { "es" }
+                        $lFile = Join-Path $LangsFolder "$lCode.json"
+                        if (Test-Path -LiteralPath $lFile -PathType Leaf) {
+                            try {
+                                $lStrings = ([System.IO.File]::ReadAllText($lFile, [System.Text.Encoding]::UTF8) | ConvertFrom-Json).Strings
+                                if ($lStrings -and $lStrings.ToastRecibidos) { $script:JsonCacheToast = [string]$lStrings.ToastRecibidos }
+                            } catch {}
+                        }
                     }
                 } catch {}
             }
@@ -715,7 +736,13 @@ public static class ShellThumbnailV2 {
                         $DirDestino.Substring($raizConBarra.Length)
                     } else { $DirDestino }
 
-                    $mensajeFinal = $Target.Mensaje.
+                    $plantillaMsg = if ($Target.UsarJsonAirDrop -and -not [string]::IsNullOrWhiteSpace($script:JsonCacheToast)) {
+                        $script:JsonCacheToast
+                    } else {
+                        $Target.Mensaje
+                    }
+
+                    $mensajeFinal = $plantillaMsg.
                         Replace('{ruta}', $rutaElegida).
                         Replace('{rutaCompleta}', $DirDestino).
                         Replace('{archivo}', $NombreArchivo)
@@ -1108,7 +1135,133 @@ public static class ShellThumbnailV2 {
 }
 
 # ==========================================================
-# MODO VISUAL: INTERFAZ GR FICA Y XAML
+# FUNCIONES BASE Y DESINSTALACION RAPIDA (SIN CARGAR WPF)
+# ==========================================================
+function Get-AppConfig {
+    if (Test-Path $jsonPath) {
+        $data = Get-Content $jsonPath -Raw | ConvertFrom-Json
+        if (-not (Get-Member -InputObject $data -Name "Carpeta" -ErrorAction SilentlyContinue))       { $data | Add-Member -MemberType NoteProperty -Name "Carpeta" -Value "" }
+        if (-not (Get-Member -InputObject $data -Name "CarpetaActiva" -ErrorAction SilentlyContinue)) { $data | Add-Member -MemberType NoteProperty -Name "CarpetaActiva" -Value "" }
+        if (-not (Get-Member -InputObject $data -Name "Idioma" -ErrorAction SilentlyContinue))        { $data | Add-Member -MemberType NoteProperty -Name "Idioma" -Value "" }
+        if (-not (Get-Member -InputObject $data -Name "Modo" -ErrorAction SilentlyContinue))          { $data | Add-Member -MemberType NoteProperty -Name "Modo" -Value "HTTP" }
+        if (-not (Get-Member -InputObject $data -Name "TokenHttp" -ErrorAction SilentlyContinue))     { $data | Add-Member -MemberType NoteProperty -Name "TokenHttp" -Value "" }
+        if (-not (Get-Member -InputObject $data -Name "HttpBackup" -ErrorAction SilentlyContinue))    { $data | Add-Member -MemberType NoteProperty -Name "HttpBackup" -Value $null }
+        return $data
+    }
+    return [PSCustomObject]@{ Usuario=""; Contrasena=""; Creado=""; Carpeta=""; CarpetaActiva=""; Idioma=""; Modo="HTTP"; TokenHttp=""; HttpBackup=$null }
+}
+
+function Save-AppConfig ($configData) {
+    if (-not (Test-Path $appDataFolder)) { New-Item -ItemType Directory -Path $appDataFolder | Out-Null }
+    $configData | ConvertTo-Json -Depth 5 | Set-Content -Path $jsonPath -Encoding UTF8
+}
+
+function Invoke-AdminCommand {
+    param([string]$ScriptCode, [bool]$Wait = $true)
+    try {
+        $encoded = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($ScriptCode))
+        if ($Wait) {
+            $process = Start-Process powershell -ArgumentList "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -EncodedCommand $encoded" -Verb RunAs -Wait -PassThru -ErrorAction Stop
+            if ($null -eq $process) { return 1 }
+            return $process.ExitCode
+        } else {
+            Start-Process powershell -ArgumentList "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -EncodedCommand $encoded" -Verb RunAs -ErrorAction Stop
+            return 0
+        }
+    } catch {
+        # Si el usuario presiona "No" en la ventana UAC de Windows, devuelve 1 sin crashear WPF
+        return 1
+    }
+}
+
+function Test-HttpPermissions {
+    try {
+        $perfiles = @(Get-NetConnectionProfile -ErrorAction SilentlyContinue)
+        if ($perfiles.Count -gt 0 -and ($perfiles.NetworkCategory -notcontains 'Private')) { return $false }
+
+        $urlPrefix = "http://+:$HttpPuerto/"
+        $urlAclOut = netsh http show urlacl "url=$urlPrefix" 2>&1
+        $hasUrlAcl = (($urlAclOut -join "`n") -match [regex]::Escape($urlPrefix))
+        if (-not $hasUrlAcl) { return $false }
+
+        $fw = Get-NetFirewallRule -Name $HttpFirewallRuleName -ErrorAction SilentlyContinue
+        if ($null -eq $fw -or $fw.Enabled -ne 'True') { return $false }
+
+        return $true
+    } catch { return $false }
+}
+
+function Get-RestoreHttpCommands {
+    $cfg = Get-AppConfig
+    $backup = $cfg.HttpBackup
+
+    if ($null -eq $backup) {
+        if (-not (Test-HttpPermissions)) { return "" }
+        $urlPrefix = "http://+:$HttpPuerto/"
+        return "netsh http delete urlacl `"url=$urlPrefix`" | Out-Null; Remove-NetFirewallRule -Name '$HttpFirewallRuleName' -ErrorAction SilentlyContinue; "
+    }
+
+    $cmds = ""
+    if (-not [bool]$backup.UrlAclExistia) {
+        $cmds += "netsh http delete urlacl `"url=$($backup.UrlPrefix)`" | Out-Null; "
+    }
+    if (-not [bool]$backup.FirewallRuleExistia) {
+        $cmds += "Remove-NetFirewallRule -Name '$($backup.ReglaFirewall)' -ErrorAction SilentlyContinue; "
+    }
+    return $cmds
+}
+
+function Invoke-AirDropUninstall {
+    $cfg             = Get-AppConfig
+    $folderPath      = if ($cfg.CarpetaActiva) { $cfg.CarpetaActiva } else { $cfg.Carpeta }
+    $cleanFolder     = if ($folderPath) { $folderPath.TrimEnd('\').Replace("'", "''") } else { "" }
+    $userName        = ([string]$cfg.Usuario).Replace("'", "''")
+    $httpRestoreCmds = Get-RestoreHttpCommands
+
+    $adminCode = @"
+        try {
+            $httpRestoreCmds
+
+            if ('$cleanFolder' -ne '') {
+                `$shares = Get-SmbShare -ErrorAction SilentlyContinue | Where-Object { `$_.Path.TrimEnd('\') -eq '$cleanFolder' }
+                if (`$shares) { `$shares | ForEach-Object { Remove-SmbShare -Name `$_.Name -Force -ErrorAction SilentlyContinue } }
+            }
+
+            if ('$userName' -ne '') {
+                Remove-LocalUser -Name '$userName' -ErrorAction SilentlyContinue
+            }
+
+            Unregister-ScheduledTask -TaskName 'AirDrop' -Confirm:`$false -ErrorAction SilentlyContinue
+            Unregister-ScheduledTask -TaskName '$TaskNameHTTP' -Confirm:`$false -ErrorAction SilentlyContinue
+            Unregister-ScheduledTask -TaskName '$TaskNameSMB'  -Confirm:`$false -ErrorAction SilentlyContinue
+
+            `$MonitorProcs = Get-CimInstance Win32_Process -Filter "Name='powershell.exe' OR Name='pwsh.exe'" | Where-Object { `$_.CommandLine -match '-MonitorBackground|-MonitorHttp' }
+            if (`$MonitorProcs) { `$MonitorProcs | ForEach-Object { Stop-Process `$_.ProcessId -Force -ErrorAction SilentlyContinue } }
+            exit 0
+        } catch { exit 1 }
+"@
+
+    $exitCode = Invoke-AdminCommand -ScriptCode $adminCode -Wait $true
+    if ($exitCode -ne 0) { return $false }
+
+    # Limpieza de claves HKCU del usuario actual (fuera del proceso elevado para evitar desajustes de perfil)
+    Remove-Item -Path 'HKCU:\Software\Classes\AppUserModelId\AirDrop.App' -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path $uninstallRegPath -Recurse -Force -ErrorAction SilentlyContinue
+    if (Test-Path $startMenuPath) { Remove-Item $startMenuPath -Force -ErrorAction SilentlyContinue }
+
+    $cmdArgs = "/c ping 127.0.0.1 -n 4 > nul & cd /d %TEMP% & rmdir /s /q `"$appDataFolder`""
+    Start-Process cmd.exe -ArgumentList $cmdArgs -WindowStyle Hidden -WorkingDirectory "C:\"
+
+    return $true
+}
+
+if ($Uninstall) {
+    [void](Invoke-AirDropUninstall)
+    exit
+}
+
+# ==========================================================
+# MODO VISUAL: INTERFAZ GRAFICA Y XAML
 # ==========================================================
 # Mostrar el cursor de "Cargando" en Windows mientras arranca la interfaz
 try {
@@ -1189,7 +1342,6 @@ $d_FadeFilaPC = "0:0:0.3"
 <!-- ANIMACIONES DE LA VENTANA PRINCIPAL (A 144 FPS) -->
         <Storyboard x:Key="AnimacionAbrir" Timeline.DesiredFrameRate="144">
             <DoubleAnimation Storyboard.TargetName="BordePrincipal" Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.22"/>
-            <DoubleAnimation Storyboard.TargetName="WindowTranslate" Storyboard.TargetProperty="Y" From="0" To="0" Duration="0:0:0.26"/>
             <DoubleAnimation Storyboard.TargetName="WindowScale" Storyboard.TargetProperty="ScaleX" From="0.88" To="1" Duration="0:0:0.26"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation>
             <DoubleAnimation Storyboard.TargetName="WindowScale" Storyboard.TargetProperty="ScaleY" From="0.88" To="1" Duration="0:0:0.26"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation>
         </Storyboard>
@@ -1221,9 +1373,8 @@ $d_FadeFilaPC = "0:0:0.3"
         <!-- STORYBOARDS DE LAS APPS INTEGRADAS             -->
         <!-- ============================================== -->
         
-        <!-- ARCHIVOS -->
 <!-- ARCHIVOS (Con 3 toques en la píldora Explorar antes de abrir los 3 puntitos) -->
-        <Storyboard x:Key="Ar_MainAnimation">
+        <Storyboard x:Key="Ar_MainAnimation" Timeline.DesiredFrameRate="$FPS_Deseados">
             <DoubleAnimation Storyboard.TargetName="Ar_AppIconText" Storyboard.TargetProperty="Opacity" From="1.0" To="0.0" BeginTime="0:0:1.0" Duration="0:0:0.1"/>
             <DoubleAnimation Storyboard.TargetName="Ar_AppIconScale" Storyboard.TargetProperty="ScaleX" From="1.0" To="2.0" BeginTime="0:0:1.0" Duration="0:0:0.4"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseInOut"/></DoubleAnimation.EasingFunction></DoubleAnimation>
             <DoubleAnimation Storyboard.TargetName="Ar_AppIconScale" Storyboard.TargetProperty="ScaleY" From="1.0" To="2.0" BeginTime="0:0:1.0" Duration="0:0:0.4"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseInOut"/></DoubleAnimation.EasingFunction></DoubleAnimation>
@@ -1286,7 +1437,7 @@ $d_FadeFilaPC = "0:0:0.3"
         </Storyboard>
 
         <!-- ATAJOS -->
-        <Storyboard x:Key="At_MainAnimation">
+        <Storyboard x:Key="At_MainAnimation" Timeline.DesiredFrameRate="$FPS_Deseados">
             <DoubleAnimation Storyboard.TargetName="At_AppIconText" Storyboard.TargetProperty="Opacity" From="1.0" To="0.0" BeginTime="0:0:1.0" Duration="0:0:0.1"/>
             <DoubleAnimation Storyboard.TargetName="At_AppIconScale" Storyboard.TargetProperty="ScaleX" From="1.0" To="2.0" BeginTime="0:0:1.0" Duration="0:0:0.4"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseInOut"/></DoubleAnimation.EasingFunction></DoubleAnimation>
             <DoubleAnimation Storyboard.TargetName="At_AppIconScale" Storyboard.TargetProperty="ScaleY" From="1.0" To="2.0" BeginTime="0:0:1.0" Duration="0:0:0.4"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseInOut"/></DoubleAnimation.EasingFunction></DoubleAnimation>
@@ -1335,7 +1486,7 @@ $d_FadeFilaPC = "0:0:0.3"
         </Storyboard>
 
         <!-- ATAJOS (MODO HTTP: IP -> CONTRASEÑA -> AGREGAR ATAJO) -->
-        <Storyboard x:Key="At_MainAnimation_HTTP">
+        <Storyboard x:Key="At_MainAnimation_HTTP" Timeline.DesiredFrameRate="$FPS_Deseados">
             <DoubleAnimation Storyboard.TargetName="At_Modal1View" Storyboard.TargetProperty="Opacity" To="0.0" BeginTime="0:0:0.0" Duration="0:0:0.0"/>
             <DoubleAnimation Storyboard.TargetName="At_Modals2y3Container" Storyboard.TargetProperty="Opacity" To="0.0" BeginTime="0:0:0.0" Duration="0:0:0.0"/>
 
@@ -1635,7 +1786,7 @@ $d_FadeFilaPC = "0:0:0.3"
             </Style.Triggers>
         </Style>
 
-<!-- BOTÓN PRIMARIO MACOS SEQUOIA (Azul Apple #007AFF con ClearType fijo y estado inactivo AppKit) -->
+        <!-- BOTÓN PRIMARIO MACOS SEQUOIA (Azul Apple #007AFF con ClearType fijo y estado inactivo AppKit) -->
         <Style TargetType="Button" x:Key="BotonMacPrimario">
             <Setter Property="TextOptions.TextHintingMode" Value="Fixed"/>
             <Setter Property="Background">
@@ -1672,6 +1823,16 @@ $d_FadeFilaPC = "0:0:0.3"
                             </Border>
                         </Grid>
                         <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="BtnBorder" Property="Background">
+                                    <Setter.Value>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                            <GradientStop Color="#FF3399FF" Offset="0.0"/>
+                                            <GradientStop Color="#FF1485FF" Offset="1.0"/>
+                                        </LinearGradientBrush>
+                                    </Setter.Value>
+                                </Setter>
+                            </Trigger>
                             <DataTrigger Binding="{Binding IsActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="False">
                                 <Setter TargetName="BtnBorder" Property="Background" Value="#FFFFFF"/>
                                 <Setter TargetName="BtnBorder" Property="BorderBrush" Value="#24000000"/>
@@ -1746,7 +1907,7 @@ $d_FadeFilaPC = "0:0:0.3"
                 <Setter.Value>
                     <ControlTemplate TargetType="ComboBox">
                         <Grid>
-                            <Border CornerRadius="5" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
+                            <Border x:Name="ComboBorder" CornerRadius="5" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
                                 <Grid>
                                     <ContentPresenter Content="{TemplateBinding SelectionBoxItem}" ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}" IsHitTestVisible="False" Margin="{TemplateBinding Padding}" HorizontalAlignment="Left" VerticalAlignment="Center"/>
                                     <ToggleButton Focusable="False" IsChecked="{Binding Path=IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}" ClickMode="Press">
@@ -1776,7 +1937,11 @@ $d_FadeFilaPC = "0:0:0.3"
                         <ControlTemplate.Triggers>
                             <DataTrigger Binding="{Binding IsActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="False">
                                 <Setter Property="Foreground" Value="#86868B"/>
+                                <Setter TargetName="ComboBorder" Property="BorderBrush" Value="#15000000"/>
                             </DataTrigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ComboBorder" Property="Background" Value="#F9F9FB"/>
+                            </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
@@ -1839,19 +2004,31 @@ $d_FadeFilaPC = "0:0:0.3"
                             </Border>
                             <Border x:Name="BtnBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="6" RenderOptions.ClearTypeHint="Enabled">
                                 <Grid>
-                                    <Border CornerRadius="5" BorderBrush="#35FFFFFF" BorderThickness="0,1,0,0"/>
+                                    <Border x:Name="InnerBevel" CornerRadius="5" BorderBrush="#35FFFFFF" BorderThickness="0,1,0,0"/>
                                     <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="{TemplateBinding Padding}"/>
                                 </Grid>
                             </Border>
                         </Grid>
                         <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="BtnBorder" Property="Background">
+                                    <Setter.Value>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                            <GradientStop Color="#FFFF645B" Offset="0.0"/>
+                                            <GradientStop Color="#FFFF4A40" Offset="1.0"/>
+                                        </LinearGradientBrush>
+                                    </Setter.Value>
+                                </Setter>
+                            </Trigger>
                             <DataTrigger Binding="{Binding IsActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="False">
                                 <Setter TargetName="BtnBorder" Property="Background" Value="#FFFFFF"/>
                                 <Setter TargetName="BtnBorder" Property="BorderBrush" Value="#24000000"/>
+                                <Setter TargetName="InnerBevel" Property="BorderBrush" Value="Transparent"/>
                                 <Setter Property="Foreground" Value="#86868B"/>
                             </DataTrigger>
                             <Trigger Property="IsPressed" Value="True">
                                 <Setter TargetName="BtnBorder" Property="Background" Value="#D7281E"/>
+                                <Setter Property="Foreground" Value="#FFFFFF"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -2196,7 +2373,7 @@ $d_FadeFilaPC = "0:0:0.3"
                                         <!-- Capa 2: Contenedor de texto 100% nítido -->
                                         <Border BorderBrush="#D2D2D7" BorderThickness="1" CornerRadius="6" Background="#FFFFFF" RenderOptions.ClearTypeHint="Enabled">
                                             <Grid>
-                                                <TextBox x:Name="TxtRuta" Text="Seleccionar carpeta para monitorizar." IsReadOnly="True" FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="13" Foreground="#86868B" BorderThickness="0" Background="Transparent" TextAlignment="Left" VerticalAlignment="Center" Padding="8,0"/>
+                                                <TextBox x:Name="TxtRuta" Text="Seleccionar carpeta para recibir archivos." IsReadOnly="True" FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="13" Foreground="#86868B" BorderThickness="0" Background="Transparent" TextAlignment="Left" VerticalAlignment="Center" Padding="8,0"/>
                                                 <TextBlock x:Name="TxtSuccess" Text="Carpeta compartida con &#x00E9;xito" FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="13" Foreground="#86868B" VerticalAlignment="Center" Margin="10,0,0,0" Opacity="0" IsHitTestVisible="False"/>
                                             </Grid>
                                         </Border>
@@ -2269,9 +2446,9 @@ $d_FadeFilaPC = "0:0:0.3"
                                     </TransformGroup>
                                 </Grid.RenderTransform>
                                 <Border Background="#FFF5F5F7" RenderOptions.ClearTypeHint="Enabled" HorizontalAlignment="Center">
-                                    <StackPanel VerticalAlignment="Center" Width="420">
-                                        <TextBlock x:Name="TxtRedPregunta" FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="14" Foreground="#1D1D1F" LineHeight="20" LineStackingStrategy="BlockLineHeight" Text="&#x00BF;Confi&#x00E1;s en la red conectada actualmente?" TextAlignment="Center" TextWrapping="Wrap"/>
-                                        <TextBlock x:Name="TxtRedDetalle" FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="14" Foreground="#1D1D1F" LineHeight="20" LineStackingStrategy="BlockLineHeight" Margin="0,4,0,0" Text="El perfil de red pasar&#x00E1; a ser privado. No actives esta opci&#x00F3;n en redes Wi-Fi p&#x00FA;blicas." TextAlignment="Center" TextWrapping="Wrap"/>
+                                    <StackPanel VerticalAlignment="Center" Width="430">
+                                        <TextBlock x:Name="TxtRedPregunta" FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="14" FontWeight="SemiBold" Foreground="#1D1D1F" LineHeight="19" LineStackingStrategy="BlockLineHeight" Text="&#x00BF;Confi&#x00E1;s en la red conectada actualmente?" TextAlignment="Center" TextWrapping="Wrap"/>
+                                        <TextBlock x:Name="TxtRedDetalle" FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="12.5" Foreground="#48484A" LineHeight="17" LineStackingStrategy="BlockLineHeight" Margin="0,5,0,0" Text="El perfil de red pasar&#x00E1; a ser Privado. No actives esta opci&#x00F3;n en redes Wi-Fi p&#x00FA;blicas." TextAlignment="Center" TextWrapping="Wrap"/>
                                     </StackPanel>
                                 </Border>
                             </Grid>
@@ -3287,7 +3464,15 @@ $d_FadeFilaPC = "0:0:0.3"
                                                                 <Thumb>
                                                                     <Thumb.Template>
                                                                         <ControlTemplate TargetType="Thumb">
-                                                                            <Border Background="#40000000" CornerRadius="3"/>
+                                                                            <Border x:Name="ThumbBorder" Background="#40000000" CornerRadius="3"/>
+                                                                            <ControlTemplate.Triggers>
+                                                                                <Trigger Property="IsMouseOver" Value="True">
+                                                                                    <Setter TargetName="ThumbBorder" Property="Background" Value="#66000000"/>
+                                                                                </Trigger>
+                                                                                <Trigger Property="IsDragging" Value="True">
+                                                                                    <Setter TargetName="ThumbBorder" Property="Background" Value="#80000000"/>
+                                                                                </Trigger>
+                                                                            </ControlTemplate.Triggers>
                                                                         </ControlTemplate>
                                                                     </Thumb.Template>
                                                                 </Thumb>
@@ -3364,6 +3549,17 @@ $d_FadeFilaPC = "0:0:0.3"
                                                 <ComboBox x:Name="CmbIdiomas" HorizontalAlignment="Right" Width="120" Style="{StaticResource MacComboBox}" ItemContainerStyle="{StaticResource MacComboBoxItem}"/>
                                             </Grid>
                                             <TextBlock FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="12" Foreground="#48484A" LineHeight="17" Text="Seleccion&#x00E1; el idioma de la interfaz. Los idiomas disponibles se leen autom&#x00E1;ticamente desde la carpeta Langs." TextWrapping="Wrap" x:Name="TxtIdiomaDesc"/>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- Tarjeta de Actualizaciones -->
+                                    <Border Background="#FFFFFF" BorderBrush="#E5E5EA" BorderThickness="1" CornerRadius="8" Margin="0,0,0,8" Padding="12,9" RenderOptions.ClearTypeHint="Enabled">
+                                        <StackPanel>
+                                            <Grid Margin="0,0,0,5">
+                                                <TextBlock x:Name="TxtUpdateTitle" FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="13" FontWeight="SemiBold" Foreground="#1D1D1F" HorizontalAlignment="Left" Text="Actualizaciones" VerticalAlignment="Center"/>
+                                                <Button x:Name="BtnBuscarActualizaciones" Content="Buscar actualizaciones" FontSize="12" HorizontalAlignment="Right" Margin="0" Padding="10,3" VerticalAlignment="Center" Style="{StaticResource BotonMacSecundario}"/>
+                                            </Grid>
+                                            <TextBlock x:Name="TxtUpdateDesc" FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="12" Foreground="#48484A" LineHeight="17" Text="Versi&#x00F3;n actual: $AppVersion" TextWrapping="Wrap"/>
                                         </StackPanel>
                                     </Border>
 
@@ -3480,11 +3676,6 @@ $global:Window.Add_StateChanged({
         $global:sbRestaurar.Begin($global:Window, $true)
         $global:Window.Activate()
     }
-})
-
-$global:Window.Add_Closed({
-    # Asegura que el cursor de Windows vuelva a la normalidad al cerrar
-    try { [Win32]::SystemParametersInfo(0x0057, 0, [IntPtr]::Zero, 0) | Out-Null } catch {}
 })
 
 $global:Window.Add_Closed({
@@ -3619,7 +3810,7 @@ $BtnVolverAyuda = $global:Window.FindName("BtnVolverAyuda")
 $BtnGitHubRepo  = $global:Window.FindName("BtnGitHubRepo")
 
 $BtnGitHubRepo.Add_Click({
-    Start-Process "https://github.com/brandown02/AirDrop-like-thing-for-Windows"
+    Start-Process "https://github.com/$GitHubRepo"
 })
 
 $BtnAyuda.Add_Click({
@@ -3721,26 +3912,8 @@ $Ar_DisplayUsuario = $global:Window.FindName("Ar_DisplayUsuario")
 $Ar_DisplayPassword = $global:Window.FindName("Ar_DisplayPassword")
 
 $ChkCompartida = $global:Window.FindName("ChkCompartida")
+$ChkCompartida = $global:Window.FindName("ChkCompartida")
 $ChkWindows = $global:Window.FindName("ChkWindows")
-
-function Get-AppConfig {
-    if (Test-Path $jsonPath) {
-        $data = Get-Content $jsonPath -Raw | ConvertFrom-Json
-        if (-not (Get-Member -InputObject $data -Name "Carpeta" -ErrorAction SilentlyContinue))       { $data | Add-Member -MemberType NoteProperty -Name "Carpeta" -Value "" }
-        if (-not (Get-Member -InputObject $data -Name "CarpetaActiva" -ErrorAction SilentlyContinue)) { $data | Add-Member -MemberType NoteProperty -Name "CarpetaActiva" -Value "" }
-        if (-not (Get-Member -InputObject $data -Name "Idioma" -ErrorAction SilentlyContinue))        { $data | Add-Member -MemberType NoteProperty -Name "Idioma" -Value "" }
-        if (-not (Get-Member -InputObject $data -Name "Modo" -ErrorAction SilentlyContinue))          { $data | Add-Member -MemberType NoteProperty -Name "Modo" -Value "HTTP" }
-        if (-not (Get-Member -InputObject $data -Name "TokenHttp" -ErrorAction SilentlyContinue))     { $data | Add-Member -MemberType NoteProperty -Name "TokenHttp" -Value "" }
-        if (-not (Get-Member -InputObject $data -Name "HttpBackup" -ErrorAction SilentlyContinue))    { $data | Add-Member -MemberType NoteProperty -Name "HttpBackup" -Value $null }
-        return $data
-    }
-    return [PSCustomObject]@{ Usuario=""; Contrasena=""; Creado=""; Carpeta=""; CarpetaActiva=""; Idioma=""; Modo="HTTP"; TokenHttp=""; HttpBackup=$null }
-}
-
-function Save-AppConfig ($configData) {
-    if (-not (Test-Path $appDataFolder)) { New-Item -ItemType Directory -Path $appDataFolder | Out-Null }
-    $configData | ConvertTo-Json -Depth 5 | Set-Content -Path $jsonPath -Encoding UTF8
-}
 
 # ==========================================================
 # MOTOR DE IDIOMAS DINÁMICO (100% DEL SCRIPT + AUTO-MAPEO TOTAL)
@@ -3772,26 +3945,26 @@ $global:DictLangs["es"] = @{
         "TxtSuccess"                 = "Carpeta compartida con $([char]0x00E9)xito"
 
         # --- Diálogos de Confirmación ---
-        "TxtBodyDesinstalar"         = "Se desinstalar$([char]0x00E1) AirDrop y todos sus archivos. La carpeta dejar$([char]0x00E1) de compartirse y de estar en l$([char]0x00ED)nea, pero sus datos no se modificar$([char]0x00E1)n."
+        "TxtBodyDesinstalar"         = "Se desinstalar$([char]0x00E1) AirDrop y todos sus componentes. La carpeta dejar$([char]0x00E1) de compartirse y de estar disponible en red, pero tus archivos no se modificar$([char]0x00E1)n."
         "TxtRedPregunta"             = "$([char]0x00BF)Confi$([char]0x00E1)s en la red conectada actualmente?"
-        "TxtRedDetalle"              = "El perfil de red pasar$([char]0x00E1) a ser privado. No actives esta opci$([char]0x00F3)n en redes Wi-Fi p$([char]0x00FA)blicas."
+        "TxtRedDetalle"              = "El perfil de red pasar$([char]0x00E1) a ser Privado. No actives esta opci$([char]0x00F3)n en redes Wi-Fi p$([char]0x00FA)blicas."
 
         # --- Menú Acerca de (?) ---
         "TxtAyudaHeader"             = "Acerca de AirDrop"
         "TxtAyuda1Title"             = "Instalar (manual o v$([char]0x00ED)a PowerShell)"
-        "TxtAyuda1Body"              = "Copia los archivos necesarios a %APPDATA%\AirDrop. Crea el acceso directo en el Men$([char]0x00FA) de Inicio, registra el ID de notificaciones en HKCU:\Software\Classes\AppUserModelId\AirDrop.App y crea la tarea 'AirDrop' para iniciar el script al iniciar sesi$([char]0x00F3)n."
+        "TxtAyuda1Body"              = "Copia los archivos necesarios a %APPDATA%\AirDrop. Crea el acceso directo en el Men$([char]0x00FA) de Inicio, registra el ID de notificaciones en HKCU:\Software\Classes\AppUserModelId\AirDrop.App y crea la tarea 'AirDrop (SMB)' para iniciar el script al iniciar sesi$([char]0x00F3)n."
         "TxtAyuda2Title"             = "Seleccionar carpeta (...) | Carpeta compartida"
-        "TxtAyuda2Body"              = "El bot$([char]0x00F3)n '...' define la carpeta que vigila el script en segundo plano. Al activar 'Carpeta compartida', asigna permisos NTFS de modificaci$([char]0x00F3)n al grupo Todos (S-1-1-0), comparte la carpeta por red SMB, pasa la red actual a perfil Privado, habilita el uso compartido de archivos en el Firewall Privado (bloque$([char]0x00E1)ndolo en redes P$([char]0x00FA)blicas) y activa en el Registro (HKLM) la protecci$([char]0x00F3)n por contrase$([char]0x00F1)a con cifrado NTLM de 128 bits."
+        "TxtAyuda2Body"              = "El bot$([char]0x00F3)n '...' define la carpeta que vigila el script en segundo plano. Al activar 'Carpeta compartida', asigna permisos NTFS de modificaci$([char]0x00F3)n al grupo Todos (S-1-1-0), comparte la carpeta por red SMB, pasa la red actual a perfil Privado, habilita el uso compartido de archivos en el Firewall de Windows para redes Privadas (bloque$([char]0x00E1)ndolo en redes P$([char]0x00FA)blicas) y activa en el Registro (HKLM) la protecci$([char]0x00F3)n por contrase$([char]0x00F1)a con cifrado NTLM de 128 bits."
         "TxtAyuda3Title"             = "Iniciar con Windows"
-        "TxtAyuda3Body"              = "Habilita o deshabilita la tarea programada 'AirDrop' en Windows para que el script arranque autom$([char]0x00E1)ticamente en segundo plano al iniciar sesi$([char]0x00F3)n."
+        "TxtAyuda3Body"              = "Habilita o deshabilita la tarea programada 'AirDrop (SMB)' en Windows para que el script arranque autom$([char]0x00E1)ticamente en segundo plano al iniciar sesi$([char]0x00F3)n."
         "TxtAyuda4Title"             = "Crear credenciales | Eliminar credenciales"
         "TxtAyuda4Body"              = "Crea una cuenta de usuario local en Windows dentro del grupo Usuarios para que tu iPhone pueda autenticarse por SMB, y guarda los datos en credentials.json. 'Eliminar credenciales' borra ese usuario local de Windows."
         "TxtIdiomaTitulo"            = "Idioma"
-        "TxtIdiomaDesc"              = "Seleccion$([char]0x00E1) el idioma de la interfaz. Idiomas agregados manualmente se leen autom$([char]0x00E1)ticamente desde la carpeta Langs (requiere reiniciar la interfaz)."
+        "TxtIdiomaDesc"              = "Seleccion$([char]0x00E1) el idioma de la interfaz. Los idiomas agregados manualmente se cargan autom$([char]0x00E1)ticamente desde la carpeta Langs (requiere reiniciar la app)."
         "TxtAyuda5Title"             = "Desinstalar"
         "BtnDesinstalar"             = "Desinstalar AirDrop"
-        "TxtAyuda5Body1"             = "Elimina el usuario local creado, borra la tarea programada, limpia el Registro de notificaciones, cierra el script en segundo plano, quita el acceso directo del Men$([char]0x00FA) de Inicio y elimina %APPDATA%\AirDrop."
-        "TxtAyuda5Body2"             = "$([char]0x2022) Qu$([char]0x00E9) no revierte: La conexi$([char]0x00F3)n de red permanece como 'Privada', se conservan los permisos NTFS locales de esa carpeta y quedan activas las reglas seguras del Firewall y de cifrado de 128 bits en Windows."
+        "TxtAyuda5Body1"             = "Deja de compartir la carpeta, elimina el usuario local creado, borra las tareas programadas, limpia el Registro de notificaciones, cierra el script en segundo plano, quita el acceso directo del Men$([char]0x00FA) de Inicio y elimina %APPDATA%\AirDrop."
+        "TxtAyuda5Body2"             = "$([char]0x2022) Qu$([char]0x00E9) no revierte: La conexi$([char]0x00F3)n de red permanece como Privada, se conservan los permisos NTFS locales de esa carpeta y quedan activas las reglas del Firewall de Windows y el cifrado NTLM de 128 bits."
         "RepoText"                   = "github.com/brandown02/AirDrop-like-thing-for-Windows"
 
         # --- Panel Vincular iPhone y Animaciones iOS ---
@@ -3828,7 +4001,6 @@ $global:DictLangs["es"] = @{
         "iOS_AgregarAtajo"           = "Agregar atajo"
         "iOS_OmitirConfig"           = "Omitir configuraci$([char]0x00F3)n"
         "iOS_Siguiente"              = "Siguiente"
-        "iOS_Texto"                  = "Texto"
         "iOS_Favoritos"              = "Favoritos"
         "iOS_Abrir"                  = "Abrir"
         "iOS_UsersFolder"            = "Users"
@@ -3858,12 +4030,12 @@ $global:DictLangs["es"] = @{
         # --- Textos Dinámicos (PowerShell y Bandeja) ---
         "PhUsuario"                  = "Escribir usuario..."
         "PhPassword"                 = "Escribir contrase$([char]0x00F1)a..."
-        "TxtRutaDefecto"             = "Seleccionar carpeta para monitorizar."
+        "TxtRutaDefecto"             = "Seleccionar carpeta para recibir archivos."
         "ErrRuta1"                   = "Seleccion$([char]0x00E1) una carpeta y compartila antes de entrar ac$([char]0x00E1)"
-        "ErrRuta2"                   = "Compart$([char]0x00ED) la carpeta antes de entrar ac$([char]0x00E1)"
+        "ErrRuta2"                   = "Activ$([char]0x00E1) 'Carpeta compartida' antes de entrar ac$([char]0x00E1)"
         "ErrRuta3"                   = "Seleccion$([char]0x00E1) una carpeta primero usando el bot$([char]0x00F3)n '...'"
         "ErrEspacios"                = "No se admiten espacios"
-        "DlgCarpetaTitulo"           = "Seleccionar carpeta para monitorizar"
+        "DlgCarpetaTitulo"           = "Seleccionar carpeta para recibir archivos"
         "DlgCarpetaArchivo"          = "Seleccionar esta carpeta"
         "ToastRecibidos"             = "Se recibieron archivos"
         "TrayAbrir"                  = "Abrir AirDrop"
@@ -3882,22 +4054,31 @@ $global:DictLangs["es"] = @{
         "BtnCambiarPass_HTTP"        = "Cambiar contrase$([char]0x00F1)a"
         "TxtAyuda1Body_HTTP"         = "Copia los archivos necesarios a %APPDATA%\AirDrop. Crea el acceso directo en el Men$([char]0x00FA) de Inicio, registra el ID de notificaciones en HKCU:\Software\Classes\AppUserModelId\AirDrop.App y crea la tarea 'AirDrop (HTTP)' para iniciar el receptor al iniciar sesi$([char]0x00F3)n."
         "TxtAyuda2Title_HTTP"        = "Seleccionar carpeta (...) | Disponible en red"
-        "TxtAyuda2Body_HTTP"         = "El bot$([char]0x00F3)n '...' define la carpeta donde se guardan los archivos recibidos en segundo plano. Al activar 'Disponible en red', registra el permiso del puerto HTTP local (urlacl), pasa la red actual a perfil Privado y habilita el puerto en el Firewall Privado (bloque$([char]0x00E1)ndolo en redes P$([char]0x00FA)blicas)."
+        "TxtAyuda2Body_HTTP"         = "El bot$([char]0x00F3)n '...' define la carpeta donde se guardan los archivos recibidos. Al activar 'Disponible en red', registra el permiso del puerto HTTP local (urlacl), pasa la red actual a perfil Privado y habilita el puerto en el Firewall de Windows para redes Privadas (bloque$([char]0x00E1)ndolo en redes P$([char]0x00FA)blicas)."
         "TxtAyuda3Body_HTTP"         = "Habilita o deshabilita la tarea programada 'AirDrop (HTTP)' en Windows para que el receptor arranque autom$([char]0x00E1)ticamente en segundo plano al iniciar sesi$([char]0x00F3)n."
-        "TxtAyuda4Title_HTTP"        = "Crear contrase$([char]0x00F1)a"
-        "TxtAyuda4Body_HTTP"         = "Define la contrase$([char]0x00F1)a de acceso que se env$([char]0x00ED)a en el atajo de iOS (encabezado X-Auth-Token) para impedir que otros dispositivos de la red entren o env$([char]0x00ED)en archivos sin autorizaci$([char]0x00F3)n."
-        "TxtAyuda5Body1_HTTP"        = "Restaura los permisos de red HTTP a su estado original si fueron modificados, borra las tareas programadas, limpia el Registro de notificaciones, cierra el script en segundo plano, quita el acceso directo del Men$([char]0x00FA) de Inicio y elimina %APPDATA%\AirDrop."
-        "TxtAyuda5Body2_HTTP"        = "$([char]0x2022) Qu$([char]0x00E9) no revierte: La conexi$([char]0x00F3)n de red permanece como 'Privada'."
+        "TxtAyuda4Title_HTTP"        = "Crear contrase$([char]0x00F1)a | Cambiar contrase$([char]0x00F1)a"
+        "TxtAyuda4Body_HTTP"         = "Define la contrase$([char]0x00F1)a de acceso que env$([char]0x00ED)a el atajo de iOS (encabezado X-Auth-Token) para impedir que otros dispositivos de la red entren o env$([char]0x00ED)en archivos sin autorizaci$([char]0x00F3)n."
+        "TxtAyuda5Body1_HTTP"        = "Restaura los permisos de red HTTP a su estado original, borra las tareas programadas, limpia el Registro de notificaciones, cierra el script en segundo plano, quita el acceso directo del Men$([char]0x00FA) de Inicio y elimina %APPDATA%\AirDrop."
+        "TxtAyuda5Body2_HTTP"        = "$([char]0x2022) Qu$([char]0x00E9) no revierte: La conexi$([char]0x00F3)n de red permanece como Privada."
         "TxtModoPreg_ToHTTP"         = "$([char]0x00BF)Cambiar al modo HTTP?"
-        "TxtModoDet_ToHTTP"          = "Se eliminar$([char]0x00E1) el usuario local creado y la carpeta dejar$([char]0x00E1) de compartirse en red. La conexi$([char]0x00F3)n de red permanecer$([char]0x00E1) como 'Privada', y se conservar$([char]0x00E1)n los permisos NTFS locales, las reglas del Firewall y el cifrado NTLM de 128 bits para compartir archivos por red."
+        "TxtModoDet_ToHTTP"          = "Se eliminar$([char]0x00E1) el usuario local creado y la carpeta dejar$([char]0x00E1) de compartirse en red. La conexi$([char]0x00F3)n de red permanecer$([char]0x00E1) como Privada, y se conservar$([char]0x00E1)n los permisos NTFS locales, las reglas del Firewall de Windows y el cifrado NTLM de 128 bits para compartir archivos."
         "TxtModoPreg_ToSMB"          = "$([char]0x00BF)Cambiar al modo SMB?"
-        "TxtModoDet_ToSMB"           = "Se restaurar$([char]0x00E1)n los permisos de red HTTP a su estado original y se activar$([char]0x00E1) el protocolo cl$([char]0x00E1)sico de carpetas compartidas (SMB). La conexi$([char]0x00F3)n de red permanecer$([char]0x00E1) como 'Privada'."
+        "TxtModoDet_ToSMB"           = "Se restaurar$([char]0x00E1)n los permisos de red HTTP a su estado original y se activar$([char]0x00E1) el protocolo cl$([char]0x00E1)sico de carpetas compartidas (SMB). La conexi$([char]0x00F3)n de red permanecer$([char]0x00E1) como Privada."
         "BtnConfirmarModo"           = "Cambiar"
         "BtnCancelarModo"            = "Cancelar"
         "TxtMigrarTitulo"            = "Se detect$([char]0x00F3) una instalaci$([char]0x00F3)n previa con protocolo SMB"
         "TxtMigrarDetalle"           = "Esta versi$([char]0x00F3)n usa el protocolo HTTP, que mejora la estabilidad y el rendimiento. Si cambi$([char]0x00E1)s a HTTP, la carpeta dejar$([char]0x00E1) de compartirse en red y se eliminar$([char]0x00E1) el usuario local creado (tus archivos no se modifican y se conservan la red Privada, los permisos NTFS locales y el cifrado NTLM de 128 bits). Pod$([char]0x00E9)s cambiar de protocolo m$([char]0x00E1)s adelante."
         "BtnMigrarMantenerSMB"       = "Mantener SMB"
         "BtnMigrarUsarHTTP"          = "Usar HTTP"
+        "TxtUpdateTitle"             = "Actualizaciones"
+        "BtnUpdateBuscar"            = "Buscar actualizaciones"
+        "BtnUpdateBuscando"          = "Buscando..."
+        "BtnUpdateActualizar"        = "Actualizar"
+        "TxtUpdateIdle"              = "Versi$([char]0x00F3)n actual: {ver}"
+        "TxtUpdateBuscando"          = "Buscando actualizaciones..."
+        "TxtUpdateAlDia"             = "Ya ten$([char]0x00E9)s la $([char]0x00FA)ltima versi$([char]0x00F3)n ({ver})."
+        "TxtUpdateDisponible"        = "Hay una nueva versi$([char]0x00F3)n disponible: {new} (actual: {ver})."
+        "TxtUpdateError"             = "No se pudo comprobar si hay actualizaciones (actual: {ver})."
     }
 }
 
@@ -3926,7 +4107,7 @@ $global:DictLangs["en"] = @{
         "TxtSuccess"                 = "Folder shared successfully"
 
         # --- Confirmation Dialogs ---
-        "TxtBodyDesinstalar"         = "AirDrop and all its components will be removed. Folder sharing and network access will be turned off, but your personal files won't be touched."
+        "TxtBodyDesinstalar"         = "AirDrop and all its components will be removed. Folder sharing and network access will be turned off, but your files won't be touched."
         "TxtRedPregunta"             = "Do you trust this network?"
         "TxtRedDetalle"              = "Your network profile will be set to Private. Don't turn this on when connected to public Wi-Fi."
 
@@ -3941,11 +4122,11 @@ $global:DictLangs["en"] = @{
         "TxtAyuda4Title"             = "Create credentials | Delete credentials"
         "TxtAyuda4Body"              = "Creates a local Windows user account in the Users group so your iPhone can sign in over SMB, and saves the details to credentials.json. 'Delete credentials' removes that local account from Windows."
         "TxtIdiomaTitulo"            = "Language"
-        "TxtIdiomaDesc"              = "Choose the display language. Additional language packs are loaded automatically from the Langs folder (requires restarting the app)."
+        "TxtIdiomaDesc"              = "Choose the display language. Manually added language packs are loaded automatically from the Langs folder (requires restarting the app)."
         "TxtAyuda5Title"             = "Uninstall"
         "BtnDesinstalar"             = "Uninstall AirDrop"
-        "TxtAyuda5Body1"             = "Deletes the local Windows user created by the app, removes the scheduled tasks and the notification Registry key, stops the background process, and deletes the Start Menu shortcut and %APPDATA%\AirDrop."
-        "TxtAyuda5Body2"             = "$([char]0x2022) What isn't reverted: Your network profile remains set to Private, local NTFS folder permissions are kept, and the Windows Firewall and 128-bit encryption settings remain active."
+        "TxtAyuda5Body1"             = "Turns off folder sharing, removes the local Windows user created by the app, deletes the scheduled tasks and notification Registry key, stops the background process, and removes the Start Menu shortcut and %APPDATA%\AirDrop."
+        "TxtAyuda5Body2"             = "$([char]0x2022) What isn't reverted: Your network profile remains Private, local NTFS folder permissions are kept, and Windows Firewall rules and 128-bit NTLM encryption remain active."
         "RepoText"                   = "github.com/brandown02/AirDrop-like-thing-for-Windows"
 
         # --- Pair iPhone Panel & iOS Animations ---
@@ -3982,7 +4163,6 @@ $global:DictLangs["en"] = @{
         "iOS_AgregarAtajo"           = "Add Shortcut"
         "iOS_OmitirConfig"           = "Skip Setup"
         "iOS_Siguiente"              = "Next"
-        "iOS_Texto"                  = "Text"
         "iOS_Favoritos"              = "Favorites"
         "iOS_Abrir"                  = "Open"
         "iOS_UsersFolder"            = "Users"
@@ -4014,7 +4194,7 @@ $global:DictLangs["en"] = @{
         "PhPassword"                 = "Password..."
         "TxtRutaDefecto"             = "Choose a folder to receive files."
         "ErrRuta1"                   = "Choose and share a folder before continuing"
-        "ErrRuta2"                   = "Turn on folder sharing before continuing"
+        "ErrRuta2"                   = "Turn on 'Folder sharing' before continuing"
         "ErrRuta3"                   = "Choose a folder first using the '...' button"
         "ErrEspacios"                = "Spaces are not allowed"
         "DlgCarpetaTitulo"           = "Choose a folder to receive files"
@@ -4038,10 +4218,10 @@ $global:DictLangs["en"] = @{
         "TxtAyuda2Title_HTTP"        = "Choose folder (...) | Network access"
         "TxtAyuda2Body_HTTP"         = "The '...' button sets the folder where incoming files are saved. Turning on 'Network access' registers the local HTTP port reservation (urlacl), sets the current network profile to Private, and allows the port through Windows Firewall on Private networks (blocking it on Public networks)."
         "TxtAyuda3Body_HTTP"         = "Enables or disables the 'AirDrop (HTTP)' scheduled task so the HTTP receiver starts automatically when you sign in to Windows."
-        "TxtAyuda4Title_HTTP"        = "Create password"
+        "TxtAyuda4Title_HTTP"        = "Create password | Change password"
         "TxtAyuda4Body_HTTP"         = "Sets the access password sent by the iOS Shortcut (X-Auth-Token header) so other devices on the network can't connect or upload files without permission."
-        "TxtAyuda5Body1_HTTP"        = "Restores HTTP network permissions to their original state if modified, removes the scheduled tasks and the notification Registry key, stops the background process, and deletes the Start Menu shortcut and %APPDATA%\AirDrop."
-        "TxtAyuda5Body2_HTTP"        = "$([char]0x2022) What isn't reverted: Your network profile remains set to Private."
+        "TxtAyuda5Body1_HTTP"        = "Restores HTTP network permissions to their original state, deletes the scheduled tasks and notification Registry key, stops the background process, and removes the Start Menu shortcut and %APPDATA%\AirDrop."
+        "TxtAyuda5Body2_HTTP"        = "$([char]0x2022) What isn't reverted: Your network profile remains Private."
         "TxtModoPreg_ToHTTP"         = "Switch to HTTP mode?"
         "TxtModoDet_ToHTTP"          = "The local Windows user will be deleted and folder sharing will be turned off. Your network profile will remain Private, and local NTFS permissions, Windows Firewall rules, and 128-bit NTLM encryption for file sharing will be kept."
         "TxtModoPreg_ToSMB"          = "Switch to SMB mode?"
@@ -4049,22 +4229,23 @@ $global:DictLangs["en"] = @{
         "BtnConfirmarModo"           = "Switch"
         "BtnCancelarModo"            = "Cancel"
         "TxtMigrarTitulo"            = "Previous SMB installation detected"
-        "TxtMigrarDetalle"           = "This version uses the HTTP protocol for better stability and performance. Switching to HTTP will turn off folder sharing and delete the local Windows user (your personal files won't be touched, and your Private network profile, local NTFS permissions, and 128-bit NTLM encryption will be kept). You can switch protocols anytime."
+        "TxtMigrarDetalle"           = "This version uses the HTTP protocol for better stability and performance. Switching to HTTP will turn off folder sharing and delete the local Windows user (your files won't be touched, and your Private network profile, local NTFS permissions, and 128-bit NTLM encryption will be kept). You can switch protocols anytime."
         "BtnMigrarMantenerSMB"       = "Keep SMB"
         "BtnMigrarUsarHTTP"          = "Use HTTP"
+        "TxtUpdateTitle"             = "Updates"
+        "BtnUpdateBuscar"            = "Check for updates"
+        "BtnUpdateBuscando"          = "Checking..."
+        "BtnUpdateActualizar"        = "Update"
+        "TxtUpdateIdle"              = "Current version: {ver}"
+        "TxtUpdateBuscando"          = "Checking for updates..."
+        "TxtUpdateAlDia"             = "You're up to date ({ver})."
+        "TxtUpdateDisponible"        = "Version {new} is available (current: {ver})."
+        "TxtUpdateError"             = "Couldn't check for updates (current: {ver})."
     }
 }
 
 $global:BaseStringsES = $global:DictLangs["es"].Strings.Clone()
 $global:MapaControlesIdioma = @{}
-
-# Textos originales del XAML por si se editó el diccionario en PowerShell sin tocar el XAML
-$global:TextosXamlOriginales = @{
-    "TxtAyudaHeader" = "Qu$([char]0x00E9) hace cada funci$([char]0x00F3)n en el sistema"
-    "TxtAyuda4Body"  = "Crea una cuenta de usuario local en Windows (sin vencimiento de contrase$([char]0x00F1)a) dentro del grupo Usuarios para que tu iPhone pueda autenticarse por SMB, y guarda los datos en credentials.json. 'Eliminar credenciales' borra ese usuario local de Windows."
-    "TxtAyuda5Body1" = "Deja de compartir la carpeta en red (SMB), elimina el usuario local creado, borra la tarea programada, limpia el Registro de notificaciones, cierra el script en segundo plano, quita el acceso directo del Men$([char]0x00FA) de Inicio y elimina %APPDATA%\AirDrop."
-    "TxtAyuda5Body2" = "$([char]0x2022) Qu$([char]0x00E9) no revierte: Tu carpeta y los archivos recibidos quedan intactos. La conexi$([char]0x00F3)n de red permanece como 'Privada', se conservan los permisos NTFS locales de esa carpeta y quedan activas las reglas seguras del Firewall y de cifrado de 128 bits en Windows."
-}
 
 function Obtener-NodosLogicos($nodo, $lista) {
     if ($null -eq $nodo -or $nodo -isnot [System.Windows.DependencyObject]) { return }
@@ -4094,7 +4275,6 @@ function Inicializar-MapaIdiomas {
         if ($porNombre) { $lista.Add($porNombre) }
 
         $txtES = ($global:BaseStringsES[$key] -replace "\r\n", "`n").Trim()
-        $txtAlt = if ($global:TextosXamlOriginales.ContainsKey($key)) { ($global:TextosXamlOriginales[$key] -replace "\r\n", "`n").Trim() } else { $null }
 
         foreach ($el in $todosLosNodos) {
             if ($lista.Contains($el)) { continue }
@@ -4102,20 +4282,19 @@ function Inicializar-MapaIdiomas {
 
             if ($el -is [System.Windows.Controls.TextBlock]) {
                 $actual = ($el.Text -replace "\r\n", "`n").Trim()
-                if ($actual -ceq $txtES -or ($null -ne $txtAlt -and $actual -ceq $txtAlt)) { $lista.Add($el) }
+                if ($actual -ceq $txtES) { $lista.Add($el) }
             } elseif ($el -is [System.Windows.Controls.ContentControl] -and $el.Content -is [string]) {
                 $actual = ($el.Content -replace "\r\n", "`n").Trim()
-                if ($actual -ceq $txtES -or ($null -ne $txtAlt -and $actual -ceq $txtAlt)) { $lista.Add($el) }
+                if ($actual -ceq $txtES) { $lista.Add($el) }
             }
         }
         $global:MapaControlesIdioma[$key] = $lista
     }
 }
 
-$global:CorriendoInstalado = if ($PSCommandPath) { ((Split-Path $PSCommandPath -Parent) -eq $appDataFolder) } else { $false }
 $global:LangsFolder = Join-Path $appDataFolder "Langs"
 
-if ($global:CorriendoInstalado -and (Test-Path $global:LangsFolder)) {
+if ($isInstalled -and (Test-Path $global:LangsFolder)) {
     $archivosIdioma = Get-ChildItem -Path $global:LangsFolder -Filter "*.json" -ErrorAction SilentlyContinue
     if ($archivosIdioma) {
         foreach ($file in $archivosIdioma) {
@@ -4231,18 +4410,12 @@ function Set-Idioma([string]$langCode) {
 
     $PlaceholderUsuario  = $global:Window.FindName("PlaceholderUsuario")
     $PlaceholderPassword = $global:Window.FindName("PlaceholderPassword")
-    $BtnCredenciales     = $global:Window.FindName("BtnCredenciales")
     $TxtRuta             = $global:Window.FindName("TxtRuta")
     $cfg                 = Get-AppConfig
     
     if ($PlaceholderUsuario)  { $PlaceholderUsuario.Text = Get-LangString "PhUsuario" }
     if ($PlaceholderPassword) { $PlaceholderPassword.Text = Get-LangString "PhPassword" }
     $global:PlaceholderPass = Get-LangString "PhPassword"
-
-    if ($BtnCredenciales) {
-        if ($cfg.Usuario) { $BtnCredenciales.Content = Get-LangString "BtnCredenciales_Ver" }
-        else { $BtnCredenciales.Content = Get-LangString "BtnCredenciales_Crear" }
-    }
     
     # Si el usuario todavía no eligió una carpeta real en disco, mostrar siempre el texto por defecto del idioma activo
     if ($TxtRuta -and ([string]::IsNullOrWhiteSpace($cfg.Carpeta) -or -not (Test-Path -LiteralPath $cfg.Carpeta))) {
@@ -4255,8 +4428,10 @@ function Set-Idioma([string]$langCode) {
         $Ar_DisplayPassword.Text = Get-LangString "Ar_DefaultPass"
     }
 
-    Aplicar-ModoInterfaz (Get-AppConfig).Modo
-
+    Aplicar-ModoInterfaz $cfg.Modo
+    if (Get-Command Actualizar-UIActualizaciones -ErrorAction SilentlyContinue) {
+        Actualizar-UIActualizaciones
+    }
 }
 
 function Obtener-IdiomaSistema {
@@ -4323,8 +4498,8 @@ $BtnConfirmarModo.Add_Click({
         if ($destino -eq "HTTP") {
             # SMB -> HTTP (1 solo UAC): descomparte carpeta, borra usuario local, borra tarea SMB y crea tarea HTTP habilitada
             $folderPath  = if ($cfg.CarpetaActiva) { $cfg.CarpetaActiva } else { $cfg.Carpeta }
-            $cleanFolder = if ($folderPath) { $folderPath.TrimEnd('\') } else { "" }
-            $userName    = [string]$cfg.Usuario
+            $cleanFolder = if ($folderPath) { $folderPath.TrimEnd('\').Replace("'", "''") } else { "" }
+            $userName    = ([string]$cfg.Usuario).Replace("'", "''")
             $xmlHttpB64  = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes((New-AirDropTaskXml -UriName $TaskNameHTTP -VbsPath $vbsMonitorHttpPath -Enabled $true)))
 
             $adminCode = @"
@@ -4412,7 +4587,7 @@ $global:Window.Add_Loaded({
         $idiomaInicial = $cfgInit.Idioma
     } else {
         $idiomaInicial = Obtener-IdiomaSistema
-        if ($global:CorriendoInstalado) {
+        if ($isInstalled) {
             $cfgInit.Idioma = $idiomaInicial
             Save-AppConfig $cfgInit
         }
@@ -4434,7 +4609,7 @@ $global:Window.Add_Loaded({
             if ($this.SelectedItem) {
                 $codigo = $this.SelectedItem.Tag
                 Set-Idioma $codigo
-                if ($global:CorriendoInstalado) {
+                if ($isInstalled) {
                     $cfg = Get-AppConfig
                     $cfg.Idioma = $codigo
                     Save-AppConfig $cfg
@@ -4508,24 +4683,6 @@ $global:Window.Add_Loaded({
     }
 })
 
-function Invoke-AdminCommand {
-    param([string]$ScriptCode, [bool]$Wait = $true)
-    try {
-        $encoded = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($ScriptCode))
-        if ($Wait) {
-            $process = Start-Process powershell -ArgumentList "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -EncodedCommand $encoded" -Verb RunAs -Wait -PassThru -ErrorAction Stop
-            if ($null -eq $process) { return 1 }
-            return $process.ExitCode
-        } else {
-            Start-Process powershell -ArgumentList "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -EncodedCommand $encoded" -Verb RunAs -ErrorAction Stop
-            return 0
-        }
-    } catch {
-        # Si el usuario presiona "No" en la ventana UAC de Windows, devuelve 1 sin crashear WPF
-        return 1
-    }
-}
-
 function Test-AirDropConditions {
     param($Path)
     if ([string]::IsNullOrWhiteSpace($Path) -or -not (Test-Path -LiteralPath $Path -ErrorAction SilentlyContinue)) { return $false }
@@ -4569,23 +4726,6 @@ function Test-AirDropConditions {
 # ==========================================================
 # PERMISOS HTTP (VERIFICACION, BACKUP EN JSON Y REVERSION)
 # ==========================================================
-function Test-HttpPermissions {
-    try {
-        $perfiles = @(Get-NetConnectionProfile -ErrorAction SilentlyContinue)
-        if ($perfiles.Count -gt 0 -and ($perfiles.NetworkCategory -notcontains 'Private')) { return $false }
-
-        $urlPrefix = "http://+:$HttpPuerto/"
-        $urlAclOut = netsh http show urlacl "url=$urlPrefix" 2>&1
-        $hasUrlAcl = (($urlAclOut -join "`n") -match [regex]::Escape($urlPrefix))
-        if (-not $hasUrlAcl) { return $false }
-
-        $fw = Get-NetFirewallRule -Name $HttpFirewallRuleName -ErrorAction SilentlyContinue
-        if ($null -eq $fw -or $fw.Enabled -ne 'True') { return $false }
-
-        return $true
-    } catch { return $false }
-}
-
 function Enable-HttpPermissions {
     $urlPrefix = "http://+:$HttpPuerto/"
     $usuarioActual = "$env:USERDOMAIN\$env:USERNAME"
@@ -4686,26 +4826,6 @@ function New-AirDropTaskXml {
   </Actions>
 </Task>
 "@
-}
-
-function Get-RestoreHttpCommands {
-    $cfg = Get-AppConfig
-    $backup = $cfg.HttpBackup
-
-    if ($null -eq $backup) {
-        if (-not (Test-HttpPermissions)) { return "" }
-        $urlPrefix = "http://+:$HttpPuerto/"
-        return "netsh http delete urlacl `"url=$urlPrefix`" | Out-Null; Remove-NetFirewallRule -Name '$HttpFirewallRuleName' -ErrorAction SilentlyContinue; "
-    }
-
-    $cmds = ""
-    if (-not [bool]$backup.UrlAclExistia) {
-        $cmds += "netsh http delete urlacl `"url=$($backup.UrlPrefix)`" | Out-Null; "
-    }
-    if (-not [bool]$backup.FirewallRuleExistia) {
-        $cmds += "Remove-NetFirewallRule -Name '$($backup.ReglaFirewall)' -ErrorAction SilentlyContinue; "
-    }
-    return $cmds
 }
 
 function Restore-HttpPermissions {
@@ -4859,6 +4979,176 @@ function Actualizar-EstadoSwitchRed {
     $global:IgnorarClick = $true
     $ChkCompartida.IsChecked = $activo
     $global:IgnorarClick = $false
+}
+
+# ==========================================================
+# VERIFICADOR DE ACTUALIZACIONES (GITHUB RELEASES ASINCRONO)
+# ==========================================================
+$BtnBuscarActualizaciones = $global:Window.FindName("BtnBuscarActualizaciones")
+$TxtUpdateDesc            = $global:Window.FindName("TxtUpdateDesc")
+$global:UpdateState       = "Idle"
+$global:UpdateLatestTag   = ""
+$global:UpdateChecking    = $false
+
+function ConvertTo-ComparableVersion {
+    param([string]$Tag)
+    if ([string]::IsNullOrWhiteSpace($Tag)) { return $null }
+    if ($Tag -match '(\d+(?:\.\d+){0,3})') {
+        $verStr = $matches[1]
+        if ($verStr -notmatch '\.') { $verStr += ".0" }
+        try { return [version]$verStr } catch { return $null }
+    }
+    return $null
+}
+
+function Actualizar-UIActualizaciones {
+    if (-not $BtnBuscarActualizaciones -or -not $TxtUpdateDesc) { return }
+
+    switch ($global:UpdateState) {
+        "Checking" {
+            $BtnBuscarActualizaciones.Content   = Get-LangString "BtnUpdateBuscando"
+            $BtnBuscarActualizaciones.Style     = $global:Window.FindResource("BotonMacSecundario")
+            $BtnBuscarActualizaciones.IsEnabled = $false
+            $TxtUpdateDesc.Text                 = Get-LangString "TxtUpdateBuscando"
+        }
+        "UpToDate" {
+            $BtnBuscarActualizaciones.Content   = Get-LangString "BtnUpdateBuscar"
+            $BtnBuscarActualizaciones.Style     = $global:Window.FindResource("BotonMacSecundario")
+            $BtnBuscarActualizaciones.IsEnabled = $true
+            $TxtUpdateDesc.Text                 = (Get-LangString "TxtUpdateAlDia").Replace("{ver}", $AppVersion)
+        }
+        "Available" {
+            $BtnBuscarActualizaciones.Content   = Get-LangString "BtnUpdateActualizar"
+            $BtnBuscarActualizaciones.Style     = $global:Window.FindResource("BotonMacPrimario")
+            $BtnBuscarActualizaciones.IsEnabled = $true
+            $TxtUpdateDesc.Text                 = (Get-LangString "TxtUpdateDisponible").Replace("{new}", $global:UpdateLatestTag).Replace("{ver}", $AppVersion)
+        }
+        "Error" {
+            $BtnBuscarActualizaciones.Content   = Get-LangString "BtnUpdateBuscar"
+            $BtnBuscarActualizaciones.Style     = $global:Window.FindResource("BotonMacSecundario")
+            $BtnBuscarActualizaciones.IsEnabled = $true
+            $TxtUpdateDesc.Text                 = (Get-LangString "TxtUpdateError").Replace("{ver}", $AppVersion)
+        }
+        default {
+            $BtnBuscarActualizaciones.Content   = Get-LangString "BtnUpdateBuscar"
+            $BtnBuscarActualizaciones.Style     = $global:Window.FindResource("BotonMacSecundario")
+            $BtnBuscarActualizaciones.IsEnabled = $true
+            $TxtUpdateDesc.Text                 = (Get-LangString "TxtUpdateIdle").Replace("{ver}", $AppVersion)
+        }
+    }
+}
+
+function Start-AirDropUpdateCheck {
+    param([bool]$Manual = $false)
+    if ($global:UpdateChecking) { return }
+
+    $global:UpdateChecking = $true
+    if ($Manual -or $global:UpdateState -eq "Idle") {
+        $global:UpdateState = "Checking"
+        Actualizar-UIActualizaciones
+    }
+
+    $syncUpd = [hashtable]::Synchronized(@{
+        Done      = $false
+        LatestTag = $null
+        Error     = $false
+    })
+
+    $workerUpd = {
+        param($syncUpd, $repo)
+        try {
+            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+            $tag = $null
+
+            # 1. Via rapida sin cuota de API: leer redireccion de /releases/latest
+            try {
+                $req = [System.Net.HttpWebRequest]::Create("https://github.com/$repo/releases/latest")
+                $req.AllowAutoRedirect = $false
+                $req.Timeout           = 6000
+                $req.UserAgent         = "AirDrop-Windows"
+                $resp = $req.GetResponse()
+                $loc  = $resp.Headers["Location"]
+                $resp.Close()
+                if ($loc -match '/releases/tag/([^/?#]+)$') {
+                    $tag = [System.Uri]::UnescapeDataString($matches[1])
+                }
+            } catch {}
+
+            # 2. Respaldo via API oficial de GitHub
+            if ([string]::IsNullOrWhiteSpace($tag)) {
+                $api = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases/latest" -Headers @{ "User-Agent" = "AirDrop-Windows" } -TimeoutSec 6 -ErrorAction Stop
+                if ($api -and $api.tag_name) { $tag = [string]$api.tag_name }
+            }
+
+            if (-not [string]::IsNullOrWhiteSpace($tag)) {
+                $syncUpd.LatestTag = $tag.Trim()
+            } else {
+                $syncUpd.Error = $true
+            }
+        } catch {
+            $syncUpd.Error = $true
+        } finally {
+            $syncUpd.Done = $true
+        }
+    }
+
+    $rsUpd = [runspacefactory]::CreateRunspace()
+    $rsUpd.Open()
+    $psUpd = [powershell]::Create()
+    $psUpd.Runspace = $rsUpd
+    [void]$psUpd.AddScript($workerUpd).AddArgument($syncUpd).AddArgument($GitHubRepo)
+    $null = $psUpd.BeginInvoke()
+
+    if ($global:TimerUpdateCheck) { $global:TimerUpdateCheck.Stop() }
+    $global:TimerUpdateCheck = New-Object System.Windows.Threading.DispatcherTimer
+    $global:TimerUpdateCheck.Interval = [TimeSpan]::FromMilliseconds(150)
+    $global:TimerUpdateCheck.Add_Tick({
+        if (-not $syncUpd.Done) { return }
+        $global:TimerUpdateCheck.Stop()
+        $global:UpdateChecking = $false
+
+        try { $psUpd.Dispose() } catch {}
+        try { $rsUpd.Close(); $rsUpd.Dispose() } catch {}
+
+        if (-not $syncUpd.Error -and -not [string]::IsNullOrWhiteSpace($syncUpd.LatestTag)) {
+            $verRemota = ConvertTo-ComparableVersion $syncUpd.LatestTag
+            $verLocal  = ConvertTo-ComparableVersion $AppVersion
+            if ($null -ne $verRemota -and $null -ne $verLocal -and $verRemota -gt $verLocal) {
+                $global:UpdateLatestTag = $syncUpd.LatestTag
+                $global:UpdateState     = "Available"
+            } else {
+                $global:UpdateLatestTag = $syncUpd.LatestTag
+                $global:UpdateState     = "UpToDate"
+            }
+        } else {
+            # Si fue automatico y no habia internet, queda en estado neutro; si toco el boton, avisa el error
+            $global:UpdateState = if ($Manual) { "Error" } else { "Idle" }
+        }
+        Actualizar-UIActualizaciones
+    }.GetNewClosure())
+    $global:TimerUpdateCheck.Start()
+}
+
+if ($BtnBuscarActualizaciones) {
+    $BtnBuscarActualizaciones.Add_Click({
+        if ($global:UpdateState -eq "Available") {
+            $BordePrincipal.IsHitTestVisible = $false
+            $sbCerrar.Begin($global:Window, $true)
+            Wait-Wpf -Milliseconds 150
+
+            $cmdUpdate = "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; irm $UpdateInstallerUrl | iex"
+            $psi = New-Object System.Diagnostics.ProcessStartInfo("powershell.exe")
+            $psi.Arguments = "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -Command `"$cmdUpdate`""
+            $psi.UseShellExecute = $false
+            $psi.CreateNoWindow = $true
+            [void][System.Diagnostics.Process]::Start($psi)
+
+            $global:Window.Close()
+            return
+        }
+
+        Start-AirDropUpdateCheck -Manual $true
+    })
 }
 
 # ==========================================================
@@ -5151,11 +5441,8 @@ $global:Window.Add_Loaded({
 
     Set-WpfImage $Base64_CarpetaiOS $global:Window.FindName("At_CarpetaAirDropImage") $global:Window.FindName("At_CarpetaAirDropVector")
     Set-WpfImage $Base64_CarpetaiOS $global:Window.FindName("At_CarpetaUsersImage") $global:Window.FindName("At_CarpetaUsersVector")
-
-    Actualizar-QrPorModo (Get-AppConfig).Modo
 })
 
-$isInstalled = if ($PSCommandPath) { ((Split-Path $PSCommandPath -Parent) -eq $appDataFolder) } else { $false }
 $global:CargaInicialCompleta = $false
 
 if ($isInstalled) {
@@ -5173,17 +5460,8 @@ if ($isInstalled) {
     $BotonesPrincipal.Visibility = "Visible"
     $BotonesPrincipal.Opacity = 1
     $BotonesPrincipal.IsHitTestVisible = $true
-    
+
     $config = Get-AppConfig
-    if ($config.Usuario) {
-        $BtnCredenciales.Content = "Ver credenciales"
-        $BtnCredenciales.Style = $global:Window.FindResource("BotonMacSecundario")
-        $BtnAtajo.Style = $global:Window.FindResource("BotonMacPrimario")
-    } else {
-        $BtnCredenciales.Content = "Crear credenciales"
-        $BtnCredenciales.Style = $global:Window.FindResource("BotonMacPrimario")
-        $BtnAtajo.Style = $global:Window.FindResource("BotonMacSecundario")
-    }
     if ($config.Carpeta) { $TxtRuta.Text = $config.Carpeta }
 
     [System.Windows.Input.Mouse]::OverrideCursor = [System.Windows.Input.Cursors]::AppStarting
@@ -5196,6 +5474,7 @@ if ($isInstalled) {
             try {
                 Actualizar-EstadoSwitchWindows
                 Actualizar-EstadoSwitchRed
+                Start-AirDropUpdateCheck -Manual $false
 
                 $cfgModoArr = Get-AppConfig
                 $monRunning = Get-CimInstance Win32_Process -Filter "Name='powershell.exe' OR Name='pwsh.exe'" |
@@ -5253,9 +5532,6 @@ $BtnLogo.Add_Click({
         }
     } catch { }
 })
-
-$global:MainLayoutRowsFijadas = $false
-$global:MainLayoutRowHeights = $null
 
 function Alinear-VolverAtajos {
     try {
@@ -5373,7 +5649,6 @@ function Fijar-LayoutPrincipal {
              $defs[$i].Height = [System.Windows.GridLength]::new([double]$heights[$i])
         }
 
-        $global:MainLayoutRowHeights = $heights.ToArray()
         $global:MainLayoutRowsFijadas = $true
     } catch { }
 }
@@ -5619,10 +5894,36 @@ WshShell.Run "powershell.exe -NoProfile -WindowStyle Hidden -ExecutionPolicy Byp
 '@
         Set-Content -Path $vbsGuiPath -Value $vbsGuiContent -Encoding Ascii
 
+        # El tercer parametro en True hace que Configuracion de Windows espere a que termine y quite AirDrop de la lista al instante
+        $vbsUninstallContent = @'
+Set WshShell = CreateObject("WScript.Shell")
+WshShell.Run "powershell.exe -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File """ & CreateObject("WScript.Shell").ExpandEnvironmentStrings("%APPDATA%") & "\AirDrop\AirDrop.ps1"" -Uninstall", 0, True
+'@
+        Set-Content -Path $vbsUninstallPath -Value $vbsUninstallContent -Encoding Ascii
+
         $regPath = "HKCU:\Software\Classes\AppUserModelId\AirDrop.App"
         if (-not (Test-Path $regPath)) { New-Item -Path $regPath -Force | Out-Null }
         Set-ItemProperty -Path $regPath -Name "DisplayName" -Value "AirDrop"
         if (Test-Path $imgDest) { Set-ItemProperty -Path $regPath -Name "IconUri" -Value $imgDest }
+
+        try {
+            if (-not (Test-Path $uninstallRegPath)) { New-Item -Path $uninstallRegPath -Force | Out-Null }
+            $tamBytes = (Get-ChildItem -LiteralPath $appDataFolder -Recurse -File -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum).Sum
+            $tamKB    = [Math]::Max(1, [int][Math]::Ceiling(([double]$tamBytes) / 1KB))
+
+            Set-ItemProperty -Path $uninstallRegPath -Name "DisplayName"     -Value "AirDrop"
+            Set-ItemProperty -Path $uninstallRegPath -Name "DisplayVersion"  -Value ($AppVersion.TrimStart('v', 'V'))
+            Set-ItemProperty -Path $uninstallRegPath -Name "Publisher"       -Value "brandown02"
+            Set-ItemProperty -Path $uninstallRegPath -Name "InstallLocation" -Value $appDataFolder
+            Set-ItemProperty -Path $uninstallRegPath -Name "URLInfoAbout"    -Value "https://github.com/$GitHubRepo"
+            Set-ItemProperty -Path $uninstallRegPath -Name "UninstallString" -Value "wscript.exe `"$vbsUninstallPath`""
+            if (Test-Path $icoDest) {
+                Set-ItemProperty -Path $uninstallRegPath -Name "DisplayIcon" -Value "$icoDest,0"
+            }
+            New-ItemProperty -Path $uninstallRegPath -Name "NoModify"      -Value 1      -PropertyType DWord -Force | Out-Null
+            New-ItemProperty -Path $uninstallRegPath -Name "NoRepair"      -Value 1      -PropertyType DWord -Force | Out-Null
+            New-ItemProperty -Path $uninstallRegPath -Name "EstimatedSize" -Value $tamKB -PropertyType DWord -Force | Out-Null
+        } catch { }
 
         try {
             $wshShell = New-Object -ComObject WScript.Shell
@@ -5769,49 +6070,13 @@ $BtnConfirmarDesinstalar.Add_Click({
     [System.Windows.Input.Mouse]::OverrideCursor = [System.Windows.Input.Cursors]::Wait
     $BtnConfirmarDesinstalar.Dispatcher.Invoke([Action]{}, 'Render')
 
-    $cfg = Get-AppConfig
-    $folderPath      = if ($cfg.CarpetaActiva) { $cfg.CarpetaActiva } else { $cfg.Carpeta }
-    $cleanFolder     = if ($folderPath) { $folderPath.TrimEnd('\') } else { "" }
-    $userName        = [string]$cfg.Usuario
-    $httpRestoreCmds = Get-RestoreHttpCommands
-
-    $adminCode = @"
-        try {
-            $httpRestoreCmds
-
-            if ('$cleanFolder' -ne '') {
-                `$shares = Get-SmbShare -ErrorAction SilentlyContinue | Where-Object { `$_.Path.TrimEnd('\') -eq '$cleanFolder' }
-                if (`$shares) { `$shares | ForEach-Object { Remove-SmbShare -Name `$_.Name -Force -ErrorAction SilentlyContinue } }
-            }
-
-            if ('$userName' -ne '') {
-                Remove-LocalUser -Name '$userName' -ErrorAction SilentlyContinue
-            }
-
-            Unregister-ScheduledTask -TaskName 'AirDrop' -Confirm:`$false -ErrorAction SilentlyContinue
-            Unregister-ScheduledTask -TaskName '$TaskNameHTTP' -Confirm:`$false -ErrorAction SilentlyContinue
-            Unregister-ScheduledTask -TaskName '$TaskNameSMB'  -Confirm:`$false -ErrorAction SilentlyContinue
-
-            Remove-Item -Path 'HKCU:\Software\Classes\AppUserModelId\AirDrop.App' -Recurse -Force -ErrorAction SilentlyContinue
-
-            `$MonitorProcs = Get-CimInstance Win32_Process -Filter "Name='powershell.exe' OR Name='pwsh.exe'" | Where-Object { `$_.CommandLine -match '-MonitorBackground|-MonitorHttp' }
-            if (`$MonitorProcs) { `$MonitorProcs | ForEach-Object { Stop-Process `$_.ProcessId -Force -ErrorAction SilentlyContinue } }
-            exit 0
-        } catch { exit 1 }
-"@
-
-    $exitCode = Invoke-AdminCommand -ScriptCode $adminCode -Wait $true
+    $ok = Invoke-AirDropUninstall
     [System.Windows.Input.Mouse]::OverrideCursor = $null
 
-    if ($exitCode -eq 0) {
-        if (Test-Path $startMenuPath) { Remove-Item $startMenuPath -Force -ErrorAction SilentlyContinue }
-        
-        $cmdArgs = "/c ping 127.0.0.1 -n 4 > nul & cd /d %TEMP% & rmdir /s /q `"$appDataFolder`""
-        Start-Process cmd.exe -ArgumentList $cmdArgs -WindowStyle Hidden -WorkingDirectory "C:\"
-        
+    if ($ok) {
         $global:Window.FindName("BordePrincipal").IsHitTestVisible = $false
         $global:Window.FindResource("AnimacionCerrar").Begin($global:Window, $true)
-        
+
         Wait-Wpf -Milliseconds 150
         $global:Window.Close()
     } else {
@@ -6005,8 +6270,9 @@ $ChkCompartida.Add_Click({
             return
         }
 
+        $cleanRutaEsc = $cleanRuta.Replace("'", "''")
         $adminCode = "try { " +
-            "`$path = '$cleanRuta'; " +
+            "`$path = '$cleanRutaEsc'; " +
             "`$shares = Get-SmbShare -ErrorAction SilentlyContinue | Where-Object { `$_.Path.TrimEnd('\') -eq `$path }; " +
             "if (`$shares) { `$shares | ForEach-Object { Remove-SmbShare -Name `$_.Name -Force -ErrorAction SilentlyContinue } }; " +
         "} catch { exit 1 }"
@@ -6079,8 +6345,9 @@ $BtnConfirmarRed.Add_Click({
     $global:EjecutandoAdmin = $true
 
     try {
+        $rutaEsc = $ruta.Replace("'", "''")
         $adminCode = "try { " +
-            "`$path = '$ruta'.TrimEnd('\'); " +
+            "`$path = '$rutaEsc'.TrimEnd('\'); " +
             "`$shareName = (Get-Item -LiteralPath `$path).Name; " +
             "`$existing = Get-SmbShare -Name `$shareName -ErrorAction SilentlyContinue; " +
             "if (`$existing) { Remove-SmbShare -Name `$shareName -Force -ErrorAction SilentlyContinue }; " +
@@ -6172,7 +6439,8 @@ $BtnExaminar.Add_Click({
             if ($sharesViejos) {
                 $global:EjecutandoAdmin = $true
                 try {
-                    $unshareCode = "try { `$path = '$oldPath'; `$shares = Get-SmbShare -ErrorAction SilentlyContinue | Where-Object Path -eq `$path; if (`$shares) { `$shares | ForEach-Object { Remove-SmbShare -Name `$_.Name -Force -ErrorAction SilentlyContinue } } } catch {}"
+                    $oldPathEsc = $oldPath.Replace("'", "''")
+                    $unshareCode = "try { `$path = '$oldPathEsc'; `$shares = Get-SmbShare -ErrorAction SilentlyContinue | Where-Object Path -eq `$path; if (`$shares) { `$shares | ForEach-Object { Remove-SmbShare -Name `$_.Name -Force -ErrorAction SilentlyContinue } } } catch {}"
                     Invoke-AdminCommand -ScriptCode $unshareCode -Wait $true | Out-Null
                 } finally {
                     $global:EjecutandoAdmin = $false
@@ -6289,11 +6557,11 @@ $BtnEliminarCredenciales.Add_Click({
     [System.Windows.Input.Mouse]::OverrideCursor = [System.Windows.Input.Cursors]::Wait
     $BtnEliminarCredenciales.Dispatcher.Invoke([Action]{}, 'Render')
 
-    $user = $TxtUsuario.Text
+    $userEsc = $TxtUsuario.Text.Replace("'", "''")
     $adminCode = @"
         try {
-            if ('$user' -ne '') {
-                Remove-LocalUser -Name '$user' -ErrorAction SilentlyContinue
+            if ('$userEsc' -ne '') {
+                Remove-LocalUser -Name '$userEsc' -ErrorAction SilentlyContinue
             }
         } catch { exit 1 }
 "@
@@ -6430,25 +6698,27 @@ $BtnContinuar.Add_Click({
     [System.Windows.Input.Mouse]::OverrideCursor = [System.Windows.Input.Cursors]::Wait
     $BtnContinuar.Dispatcher.Invoke([Action]{}, 'Render')
 
+    $userEsc = $user.Replace("'", "''")
+    $passEsc = $pass.Replace("'", "''")
     $adminCode = @"
         try {
-            `$passSecure = ConvertTo-SecureString '$pass' -AsPlainText -Force
-            if (Get-LocalUser -Name '$user' -ErrorAction SilentlyContinue) {
+            `$passSecure = ConvertTo-SecureString '$passEsc' -AsPlainText -Force
+            if (Get-LocalUser -Name '$userEsc' -ErrorAction SilentlyContinue) {
                 try {
-                    Set-LocalUser -Name '$user' -Password `$passSecure -ErrorAction Stop
-                    Set-LocalUser -Name '$user' -PasswordNeverExpires `$true -ErrorAction SilentlyContinue
-                    Enable-LocalUser -Name '$user' -ErrorAction SilentlyContinue
+                    Set-LocalUser -Name '$userEsc' -Password `$passSecure -ErrorAction Stop
+                    Set-LocalUser -Name '$userEsc' -PasswordNeverExpires `$true -ErrorAction SilentlyContinue
+                    Enable-LocalUser -Name '$userEsc' -ErrorAction SilentlyContinue
                 } catch {
-                    & net.exe user "$user" "$pass" /active:yes | Out-Null
+                    & net.exe user '$userEsc' '$passEsc' /active:yes | Out-Null
                     & net.exe accounts /maxpwage:unlimited | Out-Null
                 }
             } else {
-                New-LocalUser -Name '$user' -Password `$passSecure -PasswordNeverExpires -ErrorAction Stop | Out-Null
+                New-LocalUser -Name '$userEsc' -Password `$passSecure -PasswordNeverExpires -ErrorAction Stop | Out-Null
             }
             
             `$grupo = (Get-LocalGroup | Where-Object SID -match 'S-1-5-32-545').Name
             if (`$grupo) {
-                try { Add-LocalGroupMember -Group `$grupo -Member '$user' -ErrorAction Stop } catch {}
+                try { Add-LocalGroupMember -Group `$grupo -Member '$userEsc' -ErrorAction Stop } catch {}
             }
             exit 0
         } catch { exit 1 }
