@@ -5,7 +5,7 @@ $global:AppIsRunning = $false
 
 $AppVersion         = "v3.1"
 $GitHubRepo         = "brandown02/AirDrop-like-thing-for-Windows"
-$UpdateInstallerUrl = "is.gd/AirDrop_Thing"
+$UpdateAssetName = "AirDrop.thing.ps1"
 
 # ==========================================================
 # IMAGENES Y AUDIO EN BASE64
@@ -4074,8 +4074,10 @@ $global:DictLangs["es"] = @{
         "BtnUpdateBuscar"            = "Buscar actualizaciones"
         "BtnUpdateBuscando"          = "Buscando..."
         "BtnUpdateActualizar"        = "Actualizar"
+        "BtnUpdateDescargando"       = "Descargando..."
         "TxtUpdateIdle"              = "Versi$([char]0x00F3)n actual: {ver}"
         "TxtUpdateBuscando"          = "Buscando actualizaciones..."
+        "TxtUpdateDescargando"       = "Descargando actualizaci$([char]0x00F3)n ({new})..."
         "TxtUpdateAlDia"             = "Ya ten$([char]0x00E9)s la $([char]0x00FA)ltima versi$([char]0x00F3)n ({ver})."
         "TxtUpdateDisponible"        = "Hay una nueva versi$([char]0x00F3)n disponible: {new} (actual: {ver})."
         "TxtUpdateError"             = "No se pudo comprobar si hay actualizaciones (actual: {ver})."
@@ -4236,8 +4238,10 @@ $global:DictLangs["en"] = @{
         "BtnUpdateBuscar"            = "Check for updates"
         "BtnUpdateBuscando"          = "Checking..."
         "BtnUpdateActualizar"        = "Update"
+        "BtnUpdateDescargando"       = "Downloading..."
         "TxtUpdateIdle"              = "Current version: {ver}"
         "TxtUpdateBuscando"          = "Checking for updates..."
+        "TxtUpdateDescargando"       = "Downloading update ({new})..."
         "TxtUpdateAlDia"             = "You're up to date ({ver})."
         "TxtUpdateDisponible"        = "Version {new} is available (current: {ver})."
         "TxtUpdateError"             = "Couldn't check for updates (current: {ver})."
@@ -4989,6 +4993,7 @@ $TxtUpdateDesc            = $global:Window.FindName("TxtUpdateDesc")
 $global:UpdateState       = "Idle"
 $global:UpdateLatestTag   = ""
 $global:UpdateChecking    = $false
+$global:UpdateDownloading = $false
 
 function ConvertTo-ComparableVersion {
     param([string]$Tag)
@@ -5010,6 +5015,12 @@ function Actualizar-UIActualizaciones {
             $BtnBuscarActualizaciones.Style     = $global:Window.FindResource("BotonMacSecundario")
             $BtnBuscarActualizaciones.IsEnabled = $false
             $TxtUpdateDesc.Text                 = Get-LangString "TxtUpdateBuscando"
+        }
+        "Downloading" {
+            $BtnBuscarActualizaciones.Content   = Get-LangString "BtnUpdateDescargando"
+            $BtnBuscarActualizaciones.Style     = $global:Window.FindResource("BotonMacSecundario")
+            $BtnBuscarActualizaciones.IsEnabled = $false
+            $TxtUpdateDesc.Text                 = (Get-LangString "TxtUpdateDescargando").Replace("{new}", $global:UpdateLatestTag)
         }
         "UpToDate" {
             $BtnBuscarActualizaciones.Content   = Get-LangString "BtnUpdateBuscar"
@@ -5040,7 +5051,7 @@ function Actualizar-UIActualizaciones {
 
 function Start-AirDropUpdateCheck {
     param([bool]$Manual = $false)
-    if ($global:UpdateChecking) { return }
+    if ($global:UpdateChecking -or $global:UpdateDownloading) { return }
 
     $global:UpdateChecking = $true
     if ($Manual -or $global:UpdateState -eq "Idle") {
@@ -5129,21 +5140,103 @@ function Start-AirDropUpdateCheck {
     $global:TimerUpdateCheck.Start()
 }
 
-if ($BtnBuscarActualizaciones) {
-    $BtnBuscarActualizaciones.Add_Click({
-        if ($global:UpdateState -eq "Available") {
+function Start-AirDropDownloadAndUpdate {
+    if ($global:UpdateDownloading) { return }
+    $global:UpdateDownloading = $true
+    $global:UpdateState       = "Downloading"
+    Actualizar-UIActualizaciones
+
+    $updateDir  = Join-Path $appDataFolder "Update"
+    $updateFile = Join-Path $updateDir "AirDrop_Update.ps1"
+
+    $syncDl = [hashtable]::Synchronized(@{
+        Done     = $false
+        FilePath = $null
+        Error    = $false
+    })
+
+    $workerDl = {
+        param($syncDl, $repo, $assetName, $updateDir, $updateFile)
+        try {
+            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+            $wc = New-Object System.Net.WebClient
+            $wc.Encoding = [System.Text.Encoding]::UTF8
+            $wc.Headers.Add("User-Agent", "AirDrop-Windows")
+
+            $scriptText = $null
+            try {
+                $scriptText = $wc.DownloadString("https://github.com/$repo/releases/latest/download/$assetName")
+            } catch {
+                # Respaldo: si se cambio el nombre del .ps1 en la release, busca el primer asset .ps1
+                $api = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases/latest" -Headers @{ "User-Agent" = "AirDrop-Windows" } -TimeoutSec 10 -ErrorAction Stop
+                $psAsset = $api.assets | Where-Object { $_.name -like "*.ps1" } | Select-Object -First 1
+                if ($psAsset -and $psAsset.browser_download_url) {
+                    $scriptText = $wc.DownloadString($psAsset.browser_download_url)
+                }
+            } finally {
+                $wc.Dispose()
+            }
+
+            if ([string]::IsNullOrWhiteSpace($scriptText) -or $scriptText -notmatch 'param\(' -or $scriptText -notmatch 'AirDrop') {
+                $syncDl.Error = $true
+                return
+            }
+
+            if (-not (Test-Path -LiteralPath $updateDir)) {
+                New-Item -ItemType Directory -Path $updateDir -Force | Out-Null
+            }
+            $utf8ConBom = New-Object System.Text.UTF8Encoding($true)
+            [System.IO.File]::WriteAllText($updateFile, $scriptText.TrimStart([char]0xFEFF), $utf8ConBom)
+            $syncDl.FilePath = $updateFile
+        } catch {
+            $syncDl.Error = $true
+        } finally {
+            $syncDl.Done = $true
+        }
+    }
+
+    $rsDl = [runspacefactory]::CreateRunspace()
+    $rsDl.Open()
+    $psDl = [powershell]::Create()
+    $psDl.Runspace = $rsDl
+    [void]$psDl.AddScript($workerDl).AddArgument($syncDl).AddArgument($GitHubRepo).AddArgument($UpdateAssetName).AddArgument($updateDir).AddArgument($updateFile)
+    $null = $psDl.BeginInvoke()
+
+    if ($global:TimerUpdateDl) { $global:TimerUpdateDl.Stop() }
+    $global:TimerUpdateDl = New-Object System.Windows.Threading.DispatcherTimer
+    $global:TimerUpdateDl.Interval = [TimeSpan]::FromMilliseconds(150)
+    $global:TimerUpdateDl.Add_Tick({
+        if (-not $syncDl.Done) { return }
+        $global:TimerUpdateDl.Stop()
+        $global:UpdateDownloading = $false
+
+        try { $psDl.Dispose() } catch {}
+        try { $rsDl.Close(); $rsDl.Dispose() } catch {}
+
+        if (-not $syncDl.Error -and -not [string]::IsNullOrWhiteSpace($syncDl.FilePath) -and (Test-Path -LiteralPath $syncDl.FilePath)) {
             $BordePrincipal.IsHitTestVisible = $false
             $sbCerrar.Begin($global:Window, $true)
             Wait-Wpf -Milliseconds 150
 
-            $cmdUpdate = "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; irm $UpdateInstallerUrl | iex"
             $psi = New-Object System.Diagnostics.ProcessStartInfo("powershell.exe")
-            $psi.Arguments = "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -Command `"$cmdUpdate`""
+            $psi.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$($syncDl.FilePath)`" -AutoInstall"
             $psi.UseShellExecute = $false
             $psi.CreateNoWindow = $true
             [void][System.Diagnostics.Process]::Start($psi)
 
             $global:Window.Close()
+        } else {
+            $global:UpdateState = "Error"
+            Actualizar-UIActualizaciones
+        }
+    }.GetNewClosure())
+    $global:TimerUpdateDl.Start()
+}
+
+if ($BtnBuscarActualizaciones) {
+    $BtnBuscarActualizaciones.Add_Click({
+        if ($global:UpdateState -eq "Available") {
+            Start-AirDropDownloadAndUpdate
             return
         }
 
@@ -5472,6 +5565,11 @@ if ($isInstalled) {
         $timerInit.Add_Tick({
             $this.Stop()
             try {
+                $updateDirTemp = Join-Path $appDataFolder "Update"
+                if (Test-Path -LiteralPath $updateDirTemp) {
+                    Remove-Item -LiteralPath $updateDirTemp -Recurse -Force -ErrorAction SilentlyContinue
+                }
+
                 Actualizar-EstadoSwitchWindows
                 Actualizar-EstadoSwitchRed
                 Start-AirDropUpdateCheck -Manual $false
